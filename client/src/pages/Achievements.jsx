@@ -8,18 +8,18 @@ function Achievements() {
 
     // All possible achievements with icons
     const allAchievements = [
-        { type: 'first_quest', name: 'First Blood', description: 'Complete your first quest', icon: '🩸', xpBonus: 50 },
-        { type: 'streak_3', name: 'Hat Trick', description: 'Maintain a 3-day streak', icon: '🎩', xpBonus: 100 },
-        { type: 'streak_7', name: 'Week Warrior', description: 'Maintain a 7-day streak', icon: '⚔️', xpBonus: 250 },
-        { type: 'streak_30', name: 'Monthly Master', description: 'Maintain a 30-day streak', icon: '👑', xpBonus: 1000 },
-        { type: 'level_5', name: 'Rising Star', description: 'Reach level 5', icon: '⭐', xpBonus: 200 },
-        { type: 'level_10', name: 'Veteran', description: 'Reach level 10', icon: '🎖️', xpBonus: 500 },
-        { type: 'level_25', name: 'Legend', description: 'Reach level 25', icon: '🏆', xpBonus: 2000 },
-        { type: 'video_master', name: 'Video Scholar', description: 'Complete 10 YouTube quests', icon: '📺', xpBonus: 300 },
-        { type: 'dsa_master', name: 'Algorithm Ace', description: 'Complete 10 DSA quests', icon: '💻', xpBonus: 300 },
-        { type: 'task_master', name: 'Task Titan', description: 'Complete 10 Task quests', icon: '📋', xpBonus: 300 },
-        { type: 'century', name: 'Century Club', description: 'Complete 100 quests', icon: '💯', xpBonus: 1000 },
-        { type: 'no_spill', name: 'Clean Sweep', description: 'Complete a week with no spillage', icon: '🧹', xpBonus: 150 }
+        { type: 'first_quest', name: 'First Blood', description: 'Complete your first quest', icon: '🩸', xpBonus: 50, category: 'Milestone' },
+        { type: 'streak_3', name: 'Hat Trick', description: 'Maintain a 3-day streak', icon: '🎩', xpBonus: 100, category: 'Streak' },
+        { type: 'streak_7', name: 'Week Warrior', description: 'Maintain a 7-day streak', icon: '⚔️', xpBonus: 250, category: 'Streak' },
+        { type: 'streak_30', name: 'Monthly Master', description: 'Maintain a 30-day streak', icon: '👑', xpBonus: 1000, category: 'Streak' },
+        { type: 'level_5', name: 'Rising Star', description: 'Reach level 5', icon: '⭐', xpBonus: 200, category: 'Level' },
+        { type: 'level_10', name: 'Veteran', description: 'Reach level 10', icon: '🎖️', xpBonus: 500, category: 'Level' },
+        { type: 'level_25', name: 'Legend', description: 'Reach level 25', icon: '🏆', xpBonus: 2000, category: 'Level' },
+        { type: 'video_master', name: 'Video Scholar', description: 'Complete 10 YouTube quests', icon: '📺', xpBonus: 300, category: 'Mastery' },
+        { type: 'dsa_master', name: 'Algorithm Ace', description: 'Complete 10 DSA quests', icon: '💻', xpBonus: 300, category: 'Mastery' },
+        { type: 'task_master', name: 'Task Titan', description: 'Complete 10 Task quests', icon: '📋', xpBonus: 300, category: 'Mastery' },
+        { type: 'century', name: 'Century Club', description: 'Complete 100 quests', icon: '💯', xpBonus: 1000, category: 'Milestone' },
+        { type: 'no_spill', name: 'Clean Sweep', description: 'Complete a week with no spillage', icon: '🧹', xpBonus: 150, category: 'Milestone' }
     ];
 
     useEffect(() => {
@@ -50,6 +50,9 @@ function Achievements() {
         return achievement ? new Date(achievement.earnedAt).toLocaleDateString() : null;
     };
 
+    const unlockedCount = allAchievements.filter(a => isUnlocked(a.type)).length;
+    const progressPercent = Math.round((unlockedCount / allAchievements.length) * 100);
+
     if (loading) {
         return (
             <div className="loading">
@@ -61,9 +64,50 @@ function Achievements() {
     return (
         <div>
             <div className="dashboard-header">
-                <h1>🏆 Achievements</h1>
-                <div className="text-muted">
-                    {achievements.length} / {allAchievements.length} Unlocked
+                <div>
+                    <h1>🏆 Achievements</h1>
+                    <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-xs)' }}>
+                        Your collection of earned badges and milestones
+                    </p>
+                </div>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-sm)',
+                    padding: 'var(--space-sm) var(--space-lg)',
+                    background: 'var(--glass-bg)',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid var(--glass-border)'
+                }}>
+                    <span style={{
+                        background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-purple))',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        fontWeight: 700,
+                        fontSize: '1.25rem'
+                    }}>
+                        {unlockedCount}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>/</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{allAchievements.length}</span>
+                </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+                    <span style={{ fontWeight: 600 }}>Collection Progress</span>
+                    <span style={{
+                        background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-purple))',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        fontWeight: 700
+                    }}>
+                        {progressPercent}%
+                    </span>
+                </div>
+                <div className="xp-bar">
+                    <div className="xp-bar-fill" style={{ width: `${progressPercent}%` }}></div>
                 </div>
             </div>
 
@@ -73,7 +117,7 @@ function Achievements() {
                     <div className="stats-grid">
                         <div className="stat-item">
                             <div className="stat-value">{stats.level}</div>
-                            <div className="stat-label">Level</div>
+                            <div className="stat-label">Current Level</div>
                         </div>
                         <div className="stat-item">
                             <div className="stat-value">{stats.totalXP.toLocaleString()}</div>
@@ -90,7 +134,7 @@ function Achievements() {
             {/* Achievement Grid */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
                 gap: 'var(--space-md)'
             }}>
                 {allAchievements.map(achievement => {
@@ -103,51 +147,99 @@ function Achievements() {
                             className="card"
                             style={{
                                 opacity: unlocked ? 1 : 0.5,
-                                borderColor: unlocked ? 'var(--accent-gold)' : 'var(--border-color)',
-                                boxShadow: unlocked ? 'var(--shadow-glow-gold)' : 'none',
-                                position: 'relative'
+                                borderColor: unlocked ? 'rgba(0, 255, 204, 0.3)' : 'var(--glass-border)',
+                                boxShadow: unlocked ? '0 0 30px rgba(0, 255, 204, 0.1)' : 'none',
+                                position: 'relative',
+                                transition: 'all var(--transition-normal)',
+                                background: unlocked
+                                    ? 'linear-gradient(135deg, rgba(0, 255, 204, 0.05) 0%, var(--glass-bg) 100%)'
+                                    : 'var(--glass-bg)'
                             }}
                         >
+                            {/* Unlocked Checkmark */}
                             {unlocked && (
                                 <div style={{
                                     position: 'absolute',
-                                    top: '-8px',
-                                    right: '-8px',
-                                    background: 'var(--success)',
+                                    top: '-10px',
+                                    right: '-10px',
+                                    background: 'linear-gradient(135deg, var(--success) 0%, #34d399 100%)',
                                     borderRadius: '50%',
-                                    width: '24px',
-                                    height: '24px',
+                                    width: '28px',
+                                    height: '28px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '0.75rem'
+                                    fontSize: '0.85rem',
+                                    boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)',
+                                    border: '2px solid var(--bg-primary)'
                                 }}>
                                     ✓
                                 </div>
                             )}
 
+                            {/* Category Tag */}
+                            <div style={{
+                                position: 'absolute',
+                                top: 'var(--space-sm)',
+                                right: 'var(--space-sm)',
+                                fontSize: '0.65rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                color: 'var(--text-muted)',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                padding: '2px 8px',
+                                borderRadius: 'var(--radius-sm)'
+                            }}>
+                                {achievement.category}
+                            </div>
+
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
                                 <div style={{
                                     fontSize: '2.5rem',
-                                    filter: unlocked ? 'none' : 'grayscale(100%)'
+                                    filter: unlocked ? 'none' : 'grayscale(100%)',
+                                    transition: 'all var(--transition-normal)'
                                 }}>
                                     {achievement.icon}
                                 </div>
-                                <div>
-                                    <h4 style={{ margin: 0, color: unlocked ? 'var(--accent-gold)' : 'var(--text-muted)' }}>
+                                <div style={{ flex: 1 }}>
+                                    <h4 style={{
+                                        margin: 0,
+                                        color: unlocked ? 'var(--text-primary)' : 'var(--text-muted)',
+                                        fontSize: '1.1rem'
+                                    }}>
                                         {achievement.name}
                                     </h4>
-                                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                    <p style={{
+                                        margin: 0,
+                                        fontSize: '0.85rem',
+                                        color: 'var(--text-secondary)',
+                                        marginTop: 'var(--space-xs)'
+                                    }}>
                                         {achievement.description}
                                     </p>
-                                    <p style={{ margin: 0, fontSize: '0.75rem', marginTop: 'var(--space-xs)' }}>
-                                        <span className="text-gold">+{achievement.xpBonus} XP</span>
+                                    <div style={{
+                                        marginTop: 'var(--space-sm)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 'var(--space-sm)'
+                                    }}>
+                                        <span style={{
+                                            background: unlocked
+                                                ? 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))'
+                                                : 'linear-gradient(135deg, var(--text-muted), var(--text-muted))',
+                                            WebkitBackgroundClip: 'text',
+                                            WebkitTextFillColor: 'transparent',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 600
+                                        }}>
+                                            +{achievement.xpBonus} XP
+                                        </span>
                                         {unlockedDate && (
-                                            <span className="text-muted" style={{ marginLeft: 'var(--space-sm)' }}>
-                                                • Unlocked {unlockedDate}
+                                            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                                • {unlockedDate}
                                             </span>
                                         )}
-                                    </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -30,10 +30,16 @@ function QuestCard({ quest, onComplete }) {
     const isUrgent = daysRemaining !== null && daysRemaining <= 2;
     const isOverdue = daysRemaining !== null && daysRemaining < 0;
 
+    const getDeadlineStyle = () => {
+        if (isOverdue) return { color: 'var(--error)', fontWeight: 600 };
+        if (isUrgent) return { color: 'var(--warning)', fontWeight: 600 };
+        return { color: 'var(--text-muted)' };
+    };
+
     return (
         <div className="card quest-card" data-type={quest.type}>
             {quest.spillCount > 0 && (
-                <span className="quest-spilled">Spilled x{quest.spillCount}</span>
+                <span className="quest-spilled">Spilled ×{quest.spillCount}</span>
             )}
 
             <div className="quest-header">
@@ -44,7 +50,12 @@ function QuestCard({ quest, onComplete }) {
             </div>
 
             {quest.description && (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 'var(--space-sm)' }}>
+                <p style={{
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.9rem',
+                    marginTop: 'var(--space-sm)',
+                    lineHeight: 1.5
+                }}>
                     {quest.description.slice(0, 100)}{quest.description.length > 100 ? '...' : ''}
                 </p>
             )}
@@ -58,18 +69,19 @@ function QuestCard({ quest, onComplete }) {
                 </span>
                 {daysRemaining !== null && (
                     <span style={{
-                        color: isOverdue ? 'var(--error)' : isUrgent ? 'var(--warning)' : 'var(--text-muted)',
-                        marginLeft: 'auto'
+                        ...getDeadlineStyle(),
+                        marginLeft: 'auto',
+                        fontSize: '0.85rem'
                     }}>
-                        {isOverdue ? `${Math.abs(daysRemaining)}d overdue` :
-                            daysRemaining === 0 ? 'Due today' :
+                        {isOverdue ? `${Math.abs(daysRemaining)}d overdue ⚠️` :
+                            daysRemaining === 0 ? '⏰ Due today' :
                                 `${daysRemaining}d left`}
                     </span>
                 )}
             </div>
 
             {quest.type === 'youtube' && quest.youtube?.currentTime > 0 && (
-                <div className="video-progress-bar" style={{ marginTop: 'var(--space-md)' }}>
+                <div className="video-progress-bar" style={{ marginTop: 'var(--space-lg)', height: '6px' }}>
                     <div
                         className="video-progress-fill"
                         style={{
@@ -80,9 +92,9 @@ function QuestCard({ quest, onComplete }) {
             )}
 
             {quest.status === 'active' && (
-                <div style={{ marginTop: 'var(--space-md)', display: 'flex', gap: 'var(--space-sm)' }}>
+                <div style={{ marginTop: 'var(--space-lg)', display: 'flex', gap: 'var(--space-sm)' }}>
                     <Link to={`/quests/${quest._id}`} className="btn btn-secondary" style={{ flex: 1 }}>
-                        {quest.type === 'youtube' ? '▶ Continue' : 'View'}
+                        {quest.type === 'youtube' ? '▶️ Continue' : '👁️ View'}
                     </Link>
                     <button
                         className="btn btn-success"

@@ -13,7 +13,7 @@ function StatsPanel({ stats }) {
                 </div>
                 <div className="level-info">
                     <h3>Level {stats.level} Adventurer</h3>
-                    <p>{stats.totalXP.toLocaleString()} Total XP</p>
+                    <p>{stats.totalXP.toLocaleString()} Total XP Earned</p>
                 </div>
             </div>
 
@@ -25,8 +25,14 @@ function StatsPanel({ stats }) {
                     ></div>
                 </div>
                 <div className="xp-text">
-                    <span>{stats.currentLevelXP} / {stats.xpToNextLevel} XP</span>
-                    <span>Level {stats.level + 1}</span>
+                    <span>{stats.currentLevelXP.toLocaleString()} / {stats.xpToNextLevel.toLocaleString()} XP</span>
+                    <span style={{
+                        background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-purple))',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
+                    }}>
+                        Next: Level {stats.level + 1}
+                    </span>
                 </div>
             </div>
 

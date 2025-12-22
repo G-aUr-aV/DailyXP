@@ -18,11 +18,57 @@ export function extractYouTubeVideoId(url) {
 }
 
 /**
- * Get video info from YouTube (using noembed.com for no-API-key solution)
+ * Get video info from YouTube Data API v3
+ * Falls back to noembed for basic info if API key not available
  */
 export async function getVideoInfo(videoId) {
+    const apiKey = process.env.YOUTUBE_DATA_API_V3_KEY;
+
+    // If we have an API key, use YouTube Data API for full info including duration
+    if (apiKey) {
+        try {
+            const response = await fetch(
+                `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${apiKey}`
+            );
+
+            if (!response.ok) {
+                console.error('YouTube API error:', response.status);
+                return await getVideoInfoFallback(videoId);
+            }
+
+            const data = await response.json();
+
+            if (!data.items || data.items.length === 0) {
+                console.error('Video not found:', videoId);
+                return await getVideoInfoFallback(videoId);
+            }
+
+            const video = data.items[0];
+            const duration = parseDuration(video.contentDetails?.duration);
+
+            return {
+                title: video.snippet?.title || 'Unknown Video',
+                duration: duration,
+                thumbnailUrl: video.snippet?.thumbnails?.maxres?.url ||
+                    video.snippet?.thumbnails?.high?.url ||
+                    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+                author: video.snippet?.channelTitle || 'Unknown'
+            };
+        } catch (error) {
+            console.error('Error fetching from YouTube API:', error);
+            return await getVideoInfoFallback(videoId);
+        }
+    }
+
+    // Fallback to noembed if no API key
+    return await getVideoInfoFallback(videoId);
+}
+
+/**
+ * Fallback method using noembed.com (no duration available)
+ */
+async function getVideoInfoFallback(videoId) {
     try {
-        // Use noembed.com for basic video info without API key
         const response = await fetch(
             `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`
         );
@@ -40,7 +86,7 @@ export async function getVideoInfo(videoId) {
             author: data.author_name || 'Unknown'
         };
     } catch (error) {
-        console.error('Error fetching video info:', error);
+        console.error('Error fetching video info (fallback):', error);
         return null;
     }
 }

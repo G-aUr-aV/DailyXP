@@ -55,10 +55,17 @@ function Dashboard() {
         if (!dashboardData?.weekStart) return 'This Week';
         const start = new Date(dashboardData.weekStart);
         const end = new Date(dashboardData.weekEnd);
-        end.setDate(end.getDate() - 1); // End is exclusive, show last day of week
+        end.setDate(end.getDate() - 1);
 
         const options = { month: 'short', day: 'numeric' };
         return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
+    };
+
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good morning';
+        if (hour < 17) return 'Good afternoon';
+        return 'Good evening';
     };
 
     if (loading) {
@@ -95,11 +102,28 @@ function Dashboard() {
             {/* Header */}
             <div className="dashboard-header">
                 <div>
-                    <h1>Quest Dashboard</h1>
-                    <p className="text-muted">{formatWeekRange()}</p>
+                    <h1>{getGreeting()}, Adventurer!</h1>
+                    <p style={{
+                        color: 'var(--text-secondary)',
+                        marginTop: 'var(--space-xs)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-sm)'
+                    }}>
+                        <span style={{
+                            display: 'inline-block',
+                            padding: '2px 10px',
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            borderRadius: 'var(--radius-full)',
+                            fontSize: '0.85rem',
+                            color: 'var(--aurora-blue)'
+                        }}>
+                            📅 {formatWeekRange()}
+                        </span>
+                    </p>
                 </div>
                 <Link to="/quests/new" className="btn btn-gold">
-                    ➕ New Quest
+                    <span>✨</span> New Quest
                 </Link>
             </div>
 
@@ -111,10 +135,12 @@ function Dashboard() {
                 <div className="card" style={{
                     marginBottom: 'var(--space-lg)',
                     borderColor: 'var(--warning)',
-                    background: 'rgba(245, 158, 11, 0.1)'
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)',
+                    boxShadow: '0 0 30px rgba(245, 158, 11, 0.1)'
                 }}>
-                    <p style={{ color: 'var(--warning)', margin: 0 }}>
-                        ⚠️ {dashboardData.spilledCount} quest(s) spilled over from previous weeks!
+                    <p style={{ color: 'var(--warning)', margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                        <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                        <strong>{dashboardData.spilledCount} quest(s)</strong> spilled over from previous weeks!
                     </p>
                 </div>
             )}
@@ -123,7 +149,27 @@ function Dashboard() {
             <section style={{ marginBottom: 'var(--space-2xl)' }}>
                 <div className="section-header">
                     <h2 className="section-title">
-                        ⚔️ Active Quests ({dashboardData?.activeQuests?.length || 0})
+                        <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '32px',
+                            height: '32px',
+                            background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-blue))',
+                            borderRadius: 'var(--radius-sm)',
+                            marginRight: 'var(--space-sm)'
+                        }}>⚔️</span>
+                        Active Quests
+                        <span style={{
+                            marginLeft: 'var(--space-sm)',
+                            padding: '2px 10px',
+                            background: 'rgba(0, 255, 204, 0.15)',
+                            borderRadius: 'var(--radius-full)',
+                            fontSize: '0.85rem',
+                            color: 'var(--aurora-teal)'
+                        }}>
+                            {dashboardData?.activeQuests?.length || 0}
+                        </span>
                     </h2>
                 </div>
 
@@ -153,22 +199,51 @@ function Dashboard() {
                 <section>
                     <div className="section-header">
                         <h2 className="section-title">
-                            ✅ Completed This Week ({dashboardData.completedQuests.length})
+                            <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '32px',
+                                height: '32px',
+                                background: 'linear-gradient(135deg, var(--success), #34d399)',
+                                borderRadius: 'var(--radius-sm)',
+                                marginRight: 'var(--space-sm)'
+                            }}>✅</span>
+                            Completed This Week
+                            <span style={{
+                                marginLeft: 'var(--space-sm)',
+                                padding: '2px 10px',
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                borderRadius: 'var(--radius-full)',
+                                fontSize: '0.85rem',
+                                color: 'var(--success)'
+                            }}>
+                                {dashboardData.completedQuests.length}
+                            </span>
                         </h2>
                     </div>
                     <div className="quest-grid">
                         {dashboardData.completedQuests.slice(0, 3).map(quest => (
-                            <div key={quest._id} className="card" style={{ opacity: 0.7 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{quest.title}</span>
-                                    <span className="text-gold">+{quest.xpReward} XP</span>
+                            <div key={quest._id} className="card" style={{
+                                opacity: 0.8,
+                                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, var(--glass-bg) 100%)'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <span style={{
+                                            color: 'var(--text-secondary)',
+                                            textDecoration: 'line-through',
+                                            textDecorationColor: 'var(--success)'
+                                        }}>{quest.title}</span>
+                                    </div>
+                                    <span className="text-gold" style={{ fontWeight: 700 }}>+{quest.xpReward} XP</span>
                                 </div>
                             </div>
                         ))}
                     </div>
                     {dashboardData.completedQuests.length > 3 && (
-                        <Link to="/quests?status=completed" className="btn btn-secondary" style={{ marginTop: 'var(--space-md)' }}>
-                            View All Completed
+                        <Link to="/quests?status=completed" className="btn btn-secondary" style={{ marginTop: 'var(--space-lg)' }}>
+                            View All Completed ({dashboardData.completedQuests.length})
                         </Link>
                     )}
                 </section>

@@ -123,6 +123,7 @@ questSchema.virtual('daysRemaining').get(function () {
 // Index for efficient queries
 questSchema.index({ status: 1, targetWeek: 1 });
 questSchema.index({ type: 1 });
+questSchema.index({ 'youtube.videoId': 1 }); // For extension API lookups
 
 const Quest = mongoose.model('Quest', questSchema);
 

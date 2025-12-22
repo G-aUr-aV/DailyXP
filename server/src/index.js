@@ -9,6 +9,7 @@ import videoProgressRoutes from './routes/videoProgress.js';
 import statsRoutes from './routes/stats.js';
 import llmRoutes from './routes/llm.js';
 import emailRoutes from './routes/email.js';
+import extensionRoutes from './routes/extension.js';
 
 // Import services
 import { initializeEmailService, scheduleJobs } from './services/emailService.js';
@@ -20,7 +21,24 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            process.env.CLIENT_URL || 'http://localhost:5173',
+            'http://localhost:5173',
+            'http://localhost:3000'
+        ];
+
+        // Allow requests with no origin (like mobile apps or curl requests)
+        // Also allow browser extension origins (chrome-extension://, moz-extension://)
+        if (!origin ||
+            allowedOrigins.includes(origin) ||
+            origin.startsWith('chrome-extension://') ||
+            origin.startsWith('moz-extension://')) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all for development - tighten in production
+        }
+    },
     credentials: true
 }));
 app.use(express.json());
@@ -40,6 +58,7 @@ app.use('/api/video-progress', videoProgressRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/llm', llmRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/extension', extensionRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

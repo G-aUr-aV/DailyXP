@@ -42,17 +42,6 @@ function QuestLog() {
         }
     };
 
-    const handleDelete = async (questId) => {
-        if (!window.confirm('Abandon this quest? This action cannot be undone.')) return;
-
-        try {
-            await questAPI.delete(questId);
-            await fetchQuests();
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
     const setFilter = (key, value) => {
         const newParams = new URLSearchParams(searchParams);
         if (value === 'all') {
@@ -62,6 +51,20 @@ function QuestLog() {
         }
         setSearchParams(newParams);
     };
+
+    const FilterPill = ({ active, onClick, children }) => (
+        <button
+            className={`btn ${active ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={onClick}
+            style={{
+                padding: 'var(--space-xs) var(--space-md)',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.85rem'
+            }}
+        >
+            {children}
+        </button>
+    );
 
     if (loading) {
         return (
@@ -74,9 +77,14 @@ function QuestLog() {
     return (
         <div>
             <div className="dashboard-header">
-                <h1>📜 Quest Log</h1>
+                <div>
+                    <h1>📜 Quest Log</h1>
+                    <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-xs)' }}>
+                        Your complete adventure history
+                    </p>
+                </div>
                 <Link to="/quests/new" className="btn btn-gold">
-                    ➕ New Quest
+                    <span>✨</span> New Quest
                 </Link>
             </div>
 
@@ -84,48 +92,66 @@ function QuestLog() {
                 <div className="card" style={{
                     marginBottom: 'var(--space-lg)',
                     borderColor: 'var(--error)',
-                    background: 'rgba(239, 68, 68, 0.1)'
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)'
                 }}>
                     <p style={{ color: 'var(--error)', margin: 0 }}>⚠️ {error}</p>
                 </div>
             )}
 
             {/* Filters */}
-            <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-                <div style={{ display: 'flex', gap: 'var(--space-lg)', flexWrap: 'wrap' }}>
+            <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-xl)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <div>
-                        <label className="form-label" style={{ marginBottom: 'var(--space-xs)' }}>Status</label>
+                        <label className="form-label" style={{ marginBottom: 'var(--space-sm)', display: 'block' }}>
+                            Status
+                        </label>
                         <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                             {['all', 'active', 'completed'].map(status => (
-                                <button
+                                <FilterPill
                                     key={status}
-                                    className={`btn ${statusFilter === status ? 'btn-primary' : 'btn-secondary'}`}
+                                    active={statusFilter === status}
                                     onClick={() => setFilter('status', status)}
-                                    style={{ textTransform: 'capitalize', padding: 'var(--space-xs) var(--space-md)' }}
                                 >
-                                    {status}
-                                </button>
+                                    {status === 'all' ? '🌐' : status === 'active' ? '⚡' : '✅'} {status}
+                                </FilterPill>
                             ))}
                         </div>
                     </div>
 
                     <div>
-                        <label className="form-label" style={{ marginBottom: 'var(--space-xs)' }}>Type</label>
+                        <label className="form-label" style={{ marginBottom: 'var(--space-sm)', display: 'block' }}>
+                            Type
+                        </label>
                         <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                            {['all', 'youtube', 'dsa', 'task'].map(type => (
-                                <button
-                                    key={type}
-                                    className={`btn ${typeFilter === type ? 'btn-primary' : 'btn-secondary'}`}
-                                    onClick={() => setFilter('type', type)}
-                                    style={{ textTransform: 'capitalize', padding: 'var(--space-xs) var(--space-md)' }}
+                            {[
+                                { value: 'all', icon: '🌐', label: 'All' },
+                                { value: 'youtube', icon: '📺', label: 'YouTube' },
+                                { value: 'dsa', icon: '💻', label: 'DSA' },
+                                { value: 'task', icon: '📋', label: 'Task' }
+                            ].map(type => (
+                                <FilterPill
+                                    key={type.value}
+                                    active={typeFilter === type.value}
+                                    onClick={() => setFilter('type', type.value)}
                                 >
-                                    {type === 'youtube' ? '📺' : type === 'dsa' ? '💻' : type === 'task' ? '📋' : '🌐'} {type}
-                                </button>
+                                    {type.icon} {type.label}
+                                </FilterPill>
                             ))}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Quest Count */}
+            {quests.length > 0 && (
+                <p style={{
+                    color: 'var(--text-muted)',
+                    marginBottom: 'var(--space-lg)',
+                    fontSize: '0.9rem'
+                }}>
+                    Showing <span style={{ color: 'var(--aurora-teal)', fontWeight: 600 }}>{quests.length}</span> quest{quests.length !== 1 ? 's' : ''}
+                </p>
+            )}
 
             {/* Quest List */}
             {quests.length > 0 ? (

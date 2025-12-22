@@ -5,26 +5,26 @@ function Layout() {
         <div className="layout">
             <aside className="sidebar">
                 <div className="nav-logo">
-                    🎮 <span>DailyXP</span>
+                    <span>DailyXP</span>
                 </div>
 
                 <nav>
                     <ul className="nav-menu">
                         <li>
-                            <NavLink to="/" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                            <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                                 <span className="nav-icon">🏠</span>
                                 <span>Dashboard</span>
                             </NavLink>
                         </li>
                         <li>
-                            <NavLink to="/quests" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                            <NavLink to="/quests" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                                 <span className="nav-icon">📜</span>
                                 <span>Quest Log</span>
                             </NavLink>
                         </li>
                         <li>
                             <NavLink to="/quests/new" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                                <span className="nav-icon">➕</span>
+                                <span className="nav-icon">✨</span>
                                 <span>New Quest</span>
                             </NavLink>
                         </li>
@@ -37,8 +37,23 @@ function Layout() {
                     </ul>
                 </nav>
 
-                <div style={{ marginTop: 'auto', padding: 'var(--space-md)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    <p>Level Up Your Learning 🚀</p>
+                <div style={{
+                    marginTop: 'auto',
+                    padding: 'var(--space-md)',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.8rem',
+                    textAlign: 'center',
+                    borderTop: '1px solid var(--glass-border)',
+                    paddingTop: 'var(--space-lg)'
+                }}>
+                    <p style={{
+                        background: 'linear-gradient(135deg, var(--aurora-teal) 0%, var(--aurora-purple) 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        fontWeight: 600
+                    }}>
+                        Level Up Your Learning ✦
+                    </p>
                 </div>
             </aside>
 
