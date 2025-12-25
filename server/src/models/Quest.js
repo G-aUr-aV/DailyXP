@@ -74,6 +74,23 @@ const questSchema = new mongoose.Schema({
     llmAnalysis: {
         reasoning: String,
         analyzedAt: Date
+    },
+
+    // Timer feature - tracks work duration on tasks
+    timer: {
+        enabled: { type: Boolean, default: false },
+        currentTime: { type: Number, default: 0 }, // Elapsed seconds
+        isRunning: { type: Boolean, default: false },
+        lastStartedAt: { type: Date }, // When timer was last started
+        alarmEnabled: { type: Boolean, default: false },
+        alarmSeconds: { type: Number, default: 60 }, // Alarm after N seconds (default 1 min)
+        alarmTriggered: { type: Boolean, default: false },
+        pauseHistory: [{
+            pausedAt: { type: Date, required: true },
+            resumedAt: { type: Date },
+            duration: { type: Number, required: true }, // Session duration in seconds
+            reason: { type: String, default: '' }
+        }]
     }
 }, {
     timestamps: true

@@ -1,23 +1,29 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
 import { questAPI } from '../services/api';
 import QuestCard from '../components/QuestCard';
+import QuestFilter from '../components/QuestFilter';
+import { EmptyState, PageHeader, LoadingSpinner } from '../components/common';
+import { DEFAULT_FILTERS } from '../utils/constants';
 
 function QuestLog() {
-    const [searchParams, setSearchParams] = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [quests, setQuests] = useState([]);
     const [error, setError] = useState(null);
-
-    const statusFilter = searchParams.get('status') || 'all';
-    const typeFilter = searchParams.get('type') || 'all';
+    const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
     const fetchQuests = async () => {
         try {
             setLoading(true);
             const params = {};
-            if (statusFilter !== 'all') params.status = statusFilter;
-            if (typeFilter !== 'all') params.type = typeFilter;
+
+            if (filters.status !== 'all') params.status = filters.status;
+            if (filters.type !== 'all') params.type = filters.type;
+            if (filters.spilled) params.spilled = 'true';
+            params.dateField = filters.dateField;
+
+            if (filters.dateRanges.length > 0) {
+                params.dateRanges = JSON.stringify(filters.dateRanges);
+            }
 
             const data = await questAPI.getAll(params);
             setQuests(data);
@@ -31,7 +37,7 @@ function QuestLog() {
 
     useEffect(() => {
         fetchQuests();
-    }, [statusFilter, typeFilter]);
+    }, [filters]);
 
     const handleComplete = async (questId) => {
         try {
@@ -42,52 +48,29 @@ function QuestLog() {
         }
     };
 
-    const setFilter = (key, value) => {
-        const newParams = new URLSearchParams(searchParams);
-        if (value === 'all') {
-            newParams.delete(key);
-        } else {
-            newParams.set(key, value);
-        }
-        setSearchParams(newParams);
+    const handleFilterChange = (newFilters) => {
+        setFilters(newFilters);
     };
 
-    const FilterPill = ({ active, onClick, children }) => (
-        <button
-            className={`btn ${active ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={onClick}
-            style={{
-                padding: 'var(--space-xs) var(--space-md)',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.85rem'
-            }}
-        >
-            {children}
-        </button>
-    );
+    const hasActiveFilters = filters.status !== 'all' ||
+        filters.type !== 'all' ||
+        filters.spilled ||
+        filters.dateRanges.length > 0;
 
     if (loading) {
-        return (
-            <div className="loading">
-                <div className="spinner"></div>
-            </div>
-        );
+        return <LoadingSpinner />;
     }
 
     return (
         <div>
-            <div className="dashboard-header">
-                <div>
-                    <h1>📜 Quest Log</h1>
-                    <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-xs)' }}>
-                        Your complete adventure history
-                    </p>
-                </div>
-                <Link to="/quests/new" className="btn btn-gold">
-                    <span>✨</span> New Quest
-                </Link>
-            </div>
+            {/* Page Header */}
+            <PageHeader
+                title="📜 Quest Log"
+                subtitle="Your complete adventure history"
+                action={{ to: '/quests/new', label: 'New Quest', icon: '✨', variant: 'btn-gold' }}
+            />
 
+            {/* Error Display */}
             {error && (
                 <div className="card" style={{
                     marginBottom: 'var(--space-lg)',
@@ -98,60 +81,12 @@ function QuestLog() {
                 </div>
             )}
 
-            {/* Filters */}
-            <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
-                <div style={{ display: 'flex', gap: 'var(--space-xl)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                    <div>
-                        <label className="form-label" style={{ marginBottom: 'var(--space-sm)', display: 'block' }}>
-                            Status
-                        </label>
-                        <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                            {['all', 'active', 'completed'].map(status => (
-                                <FilterPill
-                                    key={status}
-                                    active={statusFilter === status}
-                                    onClick={() => setFilter('status', status)}
-                                >
-                                    {status === 'all' ? '🌐' : status === 'active' ? '⚡' : '✅'} {status}
-                                </FilterPill>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="form-label" style={{ marginBottom: 'var(--space-sm)', display: 'block' }}>
-                            Type
-                        </label>
-                        <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                            {[
-                                { value: 'all', icon: '🌐', label: 'All' },
-                                { value: 'youtube', icon: '📺', label: 'YouTube' },
-                                { value: 'dsa', icon: '💻', label: 'DSA' },
-                                { value: 'task', icon: '📋', label: 'Task' }
-                            ].map(type => (
-                                <FilterPill
-                                    key={type.value}
-                                    active={typeFilter === type.value}
-                                    onClick={() => setFilter('type', type.value)}
-                                >
-                                    {type.icon} {type.label}
-                                </FilterPill>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Quest Count */}
-            {quests.length > 0 && (
-                <p style={{
-                    color: 'var(--text-muted)',
-                    marginBottom: 'var(--space-lg)',
-                    fontSize: '0.9rem'
-                }}>
-                    Showing <span style={{ color: 'var(--aurora-teal)', fontWeight: 600 }}>{quests.length}</span> quest{quests.length !== 1 ? 's' : ''}
-                </p>
-            )}
+            {/* Quest Filter */}
+            <QuestFilter
+                onFilterChange={handleFilterChange}
+                config={{ mode: 'url', defaultCollapsed: true }}
+                resultCount={quests.length}
+            />
 
             {/* Quest List */}
             {quests.length > 0 ? (
@@ -165,17 +100,16 @@ function QuestLog() {
                     ))}
                 </div>
             ) : (
-                <div className="empty-state">
-                    <div className="empty-state-icon">📭</div>
-                    <p className="empty-state-text">
-                        {statusFilter === 'completed'
-                            ? 'No completed quests yet. Time to finish some adventures!'
-                            : 'No quests found. Start your journey by creating a new quest!'}
-                    </p>
-                    <Link to="/quests/new" className="btn btn-primary">
-                        Create Quest
-                    </Link>
-                </div>
+                <EmptyState
+                    icon="📭"
+                    title={hasActiveFilters
+                        ? 'No quests match your filters. Try adjusting them!'
+                        : 'No quests found. Start your journey by creating a new quest!'}
+                    action={hasActiveFilters
+                        ? { label: 'Clear All Filters', onClick: () => setFilters(DEFAULT_FILTERS) }
+                        : { to: '/quests/new', label: 'Create Quest' }
+                    }
+                />
             )}
         </div>
     );

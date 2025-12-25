@@ -50,6 +50,18 @@ export const questAPI = {
     processSpillage: () => fetchAPI('/quests/process-spillage', {
         method: 'POST',
     }),
+
+    // Timer controls
+    timerStart: (id) => fetchAPI(`/quests/${id}/timer/start`, { method: 'PUT' }),
+    timerPause: (id, data = {}) => fetchAPI(`/quests/${id}/timer/pause`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+    timerReset: (id) => fetchAPI(`/quests/${id}/timer/reset`, { method: 'PUT' }),
+    timerSync: (id, currentTime) => fetchAPI(`/quests/${id}/timer/sync`, {
+        method: 'PUT',
+        body: JSON.stringify({ currentTime }),
+    }),
 };
 
 // Video Progress API

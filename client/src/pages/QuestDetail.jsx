@@ -21,6 +21,15 @@ function QuestDetail() {
     const iframeRef = useRef(null);
     const progressIntervalRef = useRef(null);
 
+    // Timer state
+    const [timerTime, setTimerTime] = useState(0);
+    const [timerRunning, setTimerRunning] = useState(false);
+    const [showTimerHistory, setShowTimerHistory] = useState(false);
+    const timerIntervalRef = useRef(null);
+    const [alarmTriggered, setAlarmTriggered] = useState(false);
+    const [alarmRinging, setAlarmRinging] = useState(false);
+    const alarmAudioRef = useRef(null);
+
     useEffect(() => { fetchQuest(); }, [id]);
 
     // Initialize YouTube IFrame API
@@ -92,9 +101,13 @@ function QuestDetail() {
 
         // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (cued)
         if (playerState === 1) {
-            // Playing - start tracking progress
+            // Playing - start tracking progress and auto-start timer
             setIsPlaying(true);
             startProgressTracking();
+            // Auto-start timer if enabled and not running
+            if (quest?.timer?.enabled && !timerRunning) {
+                autoStartTimer();
+            }
         } else if (playerState === 2) {
             // Paused - update time inputs with current position
             setIsPlaying(false);
@@ -107,6 +120,18 @@ function QuestDetail() {
             updateTimeInputFromPlayer();
         } else {
             setIsPlaying(false);
+        }
+    };
+
+    // Auto-start timer (without toast) when video plays
+    const autoStartTimer = async () => {
+        if (!quest?.timer?.enabled || timerRunning) return;
+        try {
+            await questAPI.timerStart(id);
+            setTimerRunning(true);
+            startTimerInterval();
+        } catch (err) {
+            console.error('Auto-start timer failed:', err);
         }
     };
 
@@ -167,6 +192,200 @@ function QuestDetail() {
         } catch (err) { setError(err.message); } finally { setLoading(false); }
     };
 
+    // Timer functions
+    const startTimer = async () => {
+        if (!quest?.timer?.enabled) return;
+        try {
+            await questAPI.timerStart(id);
+            setTimerRunning(true);
+            startTimerInterval();
+            setToast({ type: 'success', message: '⏱️ Timer started!' });
+            setTimeout(() => setToast(null), 1500);
+        } catch (err) {
+            setToast({ type: 'error', message: err.message });
+            setTimeout(() => setToast(null), 2000);
+        }
+    };
+
+    const pauseTimer = async () => {
+        if (!quest?.timer?.enabled) return;
+
+        try {
+            stopTimerInterval();
+            const result = await questAPI.timerPause(id, { currentTime: timerTime });
+            setTimerRunning(false);
+            if (result.quest) setQuest(result.quest);
+
+            const sessionDuration = result.sessionDuration || 0;
+            if (sessionDuration > 0) {
+                setToast({ type: 'success', message: `⏸️ Timer paused (+${formatTimerTime(sessionDuration)} session)` });
+            } else {
+                setToast({ type: 'info', message: '⚠️ No new time to save' });
+            }
+            setTimeout(() => setToast(null), 2000);
+        } catch (err) {
+            setToast({ type: 'error', message: err.message });
+            setTimeout(() => setToast(null), 2000);
+        }
+    };
+
+    const resetTimer = async () => {
+        if (!quest?.timer?.enabled) return;
+        if (!window.confirm('Reset timer to 0? Session history will be kept.')) return;
+        try {
+            stopTimerInterval();
+            const result = await questAPI.timerReset(id);
+            setTimerTime(0);
+            setTimerRunning(false);
+            setAlarmTriggered(false);
+            if (result.quest) setQuest(result.quest);
+            setToast({ type: 'success', message: '↺ Timer reset' });
+            setTimeout(() => setToast(null), 1500);
+        } catch (err) {
+            setToast({ type: 'error', message: err.message });
+            setTimeout(() => setToast(null), 2000);
+        }
+    };
+
+    const startTimerInterval = () => {
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = setInterval(() => {
+            setTimerTime(prev => prev + 1);
+        }, 1000);
+    };
+
+    const stopTimerInterval = () => {
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+        }
+    };
+
+
+    // Initialize timer state from quest data - calculate elapsed time if timer was running
+    useEffect(() => {
+        if (quest?.timer?.enabled) {
+            let initialTime = quest.timer.currentTime || 0;
+
+            // If timer is running, calculate elapsed time since lastStartedAt
+            if (quest.timer.isRunning && quest.timer.lastStartedAt) {
+                const lastStarted = new Date(quest.timer.lastStartedAt).getTime();
+                const now = Date.now();
+                const elapsedSinceStart = Math.floor((now - lastStarted) / 1000);
+                initialTime = (quest.timer.currentTime || 0) + elapsedSinceStart;
+            }
+
+            setTimerTime(initialTime);
+            setTimerRunning(quest.timer.isRunning || false);
+            setAlarmTriggered(quest.timer.alarmTriggered || false);
+
+            if (quest.timer.isRunning) {
+                startTimerInterval();
+            }
+        }
+        return () => stopTimerInterval();
+    }, [quest?._id, quest?.timer?.enabled]);
+
+    // Check for alarm trigger
+    useEffect(() => {
+        if (quest?.timer?.enabled && quest?.timer?.alarmEnabled && !alarmTriggered) {
+            const alarmThreshold = quest.timer.alarmSeconds || 1800; // Default 30 min
+            if (timerTime >= alarmThreshold) {
+                setAlarmTriggered(true);
+                setAlarmRinging(true);
+
+                // Create and play gentle chime alarm sound
+                // Using Web Audio API with softer, melodic tones
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                    // Create a gentle chime function
+                    const playChime = () => {
+                        // First note (higher, softer)
+                        const osc1 = audioContext.createOscillator();
+                        const gain1 = audioContext.createGain();
+                        osc1.connect(gain1);
+                        gain1.connect(audioContext.destination);
+                        osc1.frequency.value = 523; // C5 note
+                        osc1.type = 'sine';
+                        gain1.gain.setValueAtTime(0.15, audioContext.currentTime);
+                        gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                        osc1.start(audioContext.currentTime);
+                        osc1.stop(audioContext.currentTime + 0.5);
+
+                        // Second note (lower, follows first)
+                        const osc2 = audioContext.createOscillator();
+                        const gain2 = audioContext.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(audioContext.destination);
+                        osc2.frequency.value = 659; // E5 note
+                        osc2.type = 'sine';
+                        gain2.gain.setValueAtTime(0.15, audioContext.currentTime + 0.15);
+                        gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.65);
+                        osc2.start(audioContext.currentTime + 0.15);
+                        osc2.stop(audioContext.currentTime + 0.65);
+
+                        // Third note (highest, completes the chime)
+                        const osc3 = audioContext.createOscillator();
+                        const gain3 = audioContext.createGain();
+                        osc3.connect(gain3);
+                        gain3.connect(audioContext.destination);
+                        osc3.frequency.value = 784; // G5 note
+                        osc3.type = 'sine';
+                        gain3.gain.setValueAtTime(0.12, audioContext.currentTime + 0.3);
+                        gain3.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.9);
+                        osc3.start(audioContext.currentTime + 0.3);
+                        osc3.stop(audioContext.currentTime + 0.9);
+                    };
+
+                    // Play chime immediately and then every 3 seconds
+                    playChime();
+                    const intervalId = setInterval(playChime, 3000);
+
+                    alarmAudioRef.current = { audioContext, intervalId };
+                } catch (e) {
+                    console.log('Audio not available');
+                }
+
+                // Sync with server
+                questAPI.timerSync(id, timerTime).catch(() => { });
+            }
+        }
+    }, [timerTime, quest?.timer?.alarmEnabled, quest?.timer?.alarmSeconds, alarmTriggered]);
+
+    // Function to dismiss alarm
+    const dismissAlarm = () => {
+        setAlarmRinging(false);
+        if (alarmAudioRef.current) {
+            try {
+                clearInterval(alarmAudioRef.current.intervalId);
+                alarmAudioRef.current.audioContext.close();
+                alarmAudioRef.current = null;
+            } catch (e) { }
+        }
+    };
+
+    // Cleanup alarm on unmount
+    useEffect(() => {
+        return () => {
+            if (alarmAudioRef.current) {
+                try {
+                    clearInterval(alarmAudioRef.current.intervalId);
+                    alarmAudioRef.current.audioContext.close();
+                } catch (e) { }
+            }
+        };
+    }, []);
+
+    const formatTimerTime = (seconds) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return h > 0
+            ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+            : `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    };
+
     const handleComplete = async () => {
         try {
             setCompleting(true);
@@ -187,28 +406,73 @@ function QuestDetail() {
 
     const saveVideoProgress = useCallback(async (time) => {
         if (!quest || quest.type !== 'youtube') return;
-        // Allow saving even if same as last time (manual save)
+
+        // Check if this exact timestamp was already saved
+        const alreadySaved = progressHistory.some(entry => entry.currentTime === time);
+        if (alreadySaved) {
+            setToast({ type: 'info', message: `⚠️ Timestamp ${formatTimeShort(time)} already saved` });
+            setTimeout(() => setToast(null), 2000);
+            return;
+        }
+
+        // Pause video first
+        if (playerRef.current && playerRef.current.pauseVideo) {
+            playerRef.current.pauseVideo();
+        }
+
         try {
             const sessionDuration = time > lastSaveTimeRef.current ? time - lastSaveTimeRef.current : 0;
+            let focusTime = 0;
+
+            // If timer is running, pause it and get the session duration
+            if (quest.timer?.enabled && timerRunning) {
+                stopTimerInterval();
+                try {
+                    const timerResult = await questAPI.timerPause(id, { currentTime: timerTime });
+                    focusTime = timerResult.sessionDuration || 0;
+                    setTimerRunning(false);
+                    if (timerResult.quest) setQuest(timerResult.quest);
+                } catch (timerErr) {
+                    console.error('Timer pause failed:', timerErr);
+                }
+            }
+
+            // Save video progress
             await videoProgressAPI.save(id, { currentTime: time, sessionDuration });
             lastSaveTimeRef.current = time;
             setCurrentVideoTime(time);
-            setProgressHistory(prev => [{ currentTime: time, timestamp: new Date().toISOString(), metadata: { sessionDuration } }, ...prev]);
-            setToast({ type: 'success', message: '💾 Progress saved!' });
-            setTimeout(() => setToast(null), 1500);
-        } catch (err) { setToast({ type: 'error', message: 'Save failed' }); setTimeout(() => setToast(null), 2000); }
-    }, [id, quest]);
+
+            // Add to history with both video watched time and focus time
+            setProgressHistory(prev => [{
+                currentTime: time,
+                timestamp: new Date().toISOString(),
+                metadata: { sessionDuration, focusTime }
+            }, ...prev]);
+
+            const message = focusTime > 0
+                ? `💾 Saved! (+${formatTimerTime(focusTime)} focus time)`
+                : '💾 Progress saved!';
+            setToast({ type: 'success', message });
+            setTimeout(() => setToast(null), 2000);
+        } catch (err) {
+            setToast({ type: 'error', message: 'Save failed' });
+            setTimeout(() => setToast(null), 2000);
+        }
+    }, [id, quest, timerTime, timerRunning, progressHistory]);
 
     const handleTimeInputChange = (field, value) => {
         const numValue = parseInt(value) || 0;
         const newTimeInput = { ...timeInput, [field]: numValue };
-        setTimeInput(newTimeInput);
-        setCurrentVideoTime((newTimeInput.hours * 3600) + (newTimeInput.minutes * 60) + newTimeInput.seconds);
-    };
+        const newSeconds = (newTimeInput.hours * 3600) + (newTimeInput.minutes * 60) + newTimeInput.seconds;
 
-    // Sync current player time to inputs
-    const syncFromPlayer = () => {
-        updateTimeInputFromPlayer();
+        // Pause and seek video to match input
+        if (playerRef.current) {
+            if (playerRef.current.pauseVideo) playerRef.current.pauseVideo();
+            if (playerRef.current.seekTo) playerRef.current.seekTo(newSeconds, true);
+        }
+
+        setTimeInput(newTimeInput);
+        setCurrentVideoTime(newSeconds);
     };
 
     // Direct YouTube watch URL with timestamp
@@ -288,6 +552,115 @@ function QuestDetail() {
         <div style={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
             {toast && <div className="toast-container"><div className={`toast toast-${toast.type}`}>{toast.type === 'xp' && '⚡'} {toast.message}</div></div>}
 
+            {/* Alarm Overlay Modal */}
+            {alarmRinging && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 9999,
+                    background: 'rgba(0, 0, 0, 0.85)',
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: 'fadeIn 0.3s ease'
+                }}>
+                    <div style={{
+                        textAlign: 'center',
+                        padding: '48px',
+                        background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(255, 107, 107, 0.1))',
+                        borderRadius: 'var(--radius-xl)',
+                        border: '2px solid rgba(239, 68, 68, 0.5)',
+                        maxWidth: '400px',
+                        animation: 'pulse 0.5s ease-in-out infinite alternate'
+                    }}>
+                        {/* Alarm Icon */}
+                        <div style={{
+                            fontSize: '5rem',
+                            marginBottom: '24px',
+                            animation: 'shake 0.3s ease-in-out infinite'
+                        }}>
+                            🔔
+                        </div>
+
+                        {/* Title */}
+                        <h2 style={{
+                            fontSize: '2rem',
+                            fontWeight: 800,
+                            color: '#ef4444',
+                            marginBottom: '12px',
+                            background: 'none',
+                            WebkitBackgroundClip: 'unset',
+                            WebkitTextFillColor: 'unset'
+                        }}>
+                            Time's Up!
+                        </h2>
+
+                        {/* Message */}
+                        <p style={{
+                            color: 'var(--text-secondary)',
+                            fontSize: '1.1rem',
+                            marginBottom: '8px'
+                        }}>
+                            You've been working for
+                        </p>
+
+                        {/* Timer Display */}
+                        <div style={{
+                            fontSize: '3rem',
+                            fontWeight: 800,
+                            fontFamily: 'monospace',
+                            color: 'var(--aurora-teal)',
+                            marginBottom: '24px',
+                            textShadow: '0 0 30px rgba(0, 255, 204, 0.5)'
+                        }}>
+                            {formatTimerTime(timerTime)}
+                        </div>
+
+                        <p style={{
+                            color: 'var(--text-muted)',
+                            fontSize: '0.9rem',
+                            marginBottom: '32px'
+                        }}>
+                            Alarm set for {formatTimerTime(quest?.timer?.alarmSeconds || 1800)}
+                        </p>
+
+                        {/* Dismiss Button */}
+                        <button
+                            onClick={dismissAlarm}
+                            style={{
+                                padding: '16px 48px',
+                                fontSize: '1.1rem',
+                                fontWeight: 700,
+                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                border: 'none',
+                                borderRadius: 'var(--radius-full)',
+                                color: 'white',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 30px rgba(239, 68, 68, 0.4)',
+                                transition: 'transform 0.2s ease'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                            🔕 Dismiss Alarm
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Add shake animation */}
+            <style>{`
+                @keyframes shake {
+                    0%, 100% { transform: rotate(-5deg); }
+                    50% { transform: rotate(5deg); }
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            `}</style>
+
             {/* Compact Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -298,7 +671,15 @@ function QuestDetail() {
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ fontSize: '0.8rem', color: isOverdue ? 'var(--error)' : 'var(--text-muted)' }}>
+                    <div style={{
+                        padding: '8px 16px',
+                        background: isOverdue ? 'rgba(239, 68, 68, 0.15)' : 'rgba(0, 255, 204, 0.1)',
+                        border: isOverdue ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(0, 255, 204, 0.3)',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        color: isOverdue ? 'var(--error)' : 'var(--aurora-teal)'
+                    }}>
                         {isOverdue ? `⚠️ ${Math.abs(daysRemaining)}d overdue` : daysRemaining === 0 ? '⏰ Due today' : `📅 ${daysRemaining}d left`}
                     </div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 800, background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{quest.xpReward} XP</div>
@@ -329,6 +710,135 @@ function QuestDetail() {
                                 <div style={{ padding: '12px', background: 'rgba(139, 92, 246, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                                     <span style={{ fontSize: '1rem' }}>🤖</span>
                                     <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{quest.llmAnalysis.reasoning}</p>
+                                </div>
+                            )}
+
+                            {/* Timer Bar for YouTube Quest */}
+                            {quest.timer?.enabled && (
+                                <div style={{
+                                    padding: '14px 16px',
+                                    background: timerRunning
+                                        ? 'linear-gradient(90deg, rgba(0, 255, 204, 0.15), rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.15))'
+                                        : 'rgba(255, 255, 255, 0.03)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    border: timerRunning
+                                        ? '1px solid rgba(0, 255, 204, 0.4)'
+                                        : '1px solid var(--glass-border)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '12px',
+                                    boxShadow: timerRunning ? '0 0 20px rgba(0, 255, 204, 0.2)' : 'none',
+                                    transition: 'all 0.3s ease'
+                                }}>
+                                    {/* Timer Display */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '50%',
+                                            background: timerRunning
+                                                ? 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-purple))'
+                                                : 'rgba(139, 92, 246, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            position: 'relative',
+                                            boxShadow: timerRunning ? '0 0 15px rgba(0, 255, 204, 0.4)' : 'none'
+                                        }}>
+                                            {timerRunning && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    inset: '-2px',
+                                                    borderRadius: '50%',
+                                                    border: '2px solid transparent',
+                                                    borderTopColor: 'var(--aurora-teal)',
+                                                    animation: 'spin 1s linear infinite'
+                                                }} />
+                                            )}
+                                            <span style={{ fontSize: '1rem' }}>⏱️</span>
+                                        </div>
+                                        <div>
+                                            <div style={{
+                                                fontSize: '1.5rem',
+                                                fontWeight: 800,
+                                                fontFamily: 'monospace',
+                                                color: timerRunning ? 'var(--aurora-teal)' : 'var(--text-primary)',
+                                                lineHeight: 1,
+                                                textShadow: timerRunning ? '0 0 15px rgba(0, 255, 204, 0.5)' : 'none'
+                                            }}>
+                                                {formatTimerTime(timerTime)}
+                                            </div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                {timerRunning ? '● Running' : timerTime > 0 ? 'Paused' : 'Not started'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Control Buttons */}
+                                    {quest.status === 'active' && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {!timerRunning ? (
+                                                <button
+                                                    onClick={startTimer}
+                                                    style={{
+                                                        width: '40px',
+                                                        height: '40px',
+                                                        borderRadius: '50%',
+                                                        background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))',
+                                                        border: 'none',
+                                                        color: 'white',
+                                                        fontSize: '1rem',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        boxShadow: '0 4px 15px rgba(0, 255, 204, 0.4)'
+                                                    }}
+                                                >
+                                                    ▶
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={pauseTimer}
+                                                    style={{
+                                                        width: '40px',
+                                                        height: '40px',
+                                                        borderRadius: '50%',
+                                                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                                        border: 'none',
+                                                        color: 'white',
+                                                        fontSize: '1rem',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        boxShadow: '0 4px 15px rgba(245, 158, 11, 0.4)'
+                                                    }}
+                                                >
+                                                    ⏸
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={resetTimer}
+                                                style={{
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    borderRadius: '50%',
+                                                    background: 'transparent',
+                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                    color: 'var(--error)',
+                                                    fontSize: '0.9rem',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            >
+                                                ↺
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -367,25 +877,10 @@ function QuestDetail() {
                                     <span>{formatTimeShort(actualDuration)}</span>
                                 </div>
 
-                                {/* Time Input with Sync Button */}
+                                {/* Time Input */}
                                 <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--glass-border)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <div style={{ marginBottom: '8px' }}>
                                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update progress</span>
-                                        <button
-                                            onClick={syncFromPlayer}
-                                            style={{
-                                                padding: '4px 8px',
-                                                background: 'rgba(0, 255, 204, 0.1)',
-                                                border: '1px solid rgba(0, 255, 204, 0.3)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                color: 'var(--aurora-teal)',
-                                                cursor: 'pointer',
-                                                fontSize: '0.7rem',
-                                                fontWeight: 600
-                                            }}
-                                        >
-                                            🔄 Sync from video
-                                        </button>
                                     </div>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                                         <input type="number" className="form-input" style={{ width: '44px', textAlign: 'center', padding: '6px 2px', fontSize: '0.85rem' }} value={timeInput.hours} onChange={(e) => handleTimeInputChange('hours', e.target.value)} min="0" placeholder="H" />
@@ -406,11 +901,26 @@ function QuestDetail() {
                                             📜 Watch History
                                             <span style={{ padding: '2px 8px', background: type.bg, borderRadius: 'var(--radius-full)', fontSize: '0.7rem', color: type.color }}>{progressHistory.length}</span>
                                         </span>
+                                        {/* Show total timer time if available */}
+                                        {quest.timer?.enabled && quest.timer.pauseHistory?.length > 0 && (
+                                            <span style={{
+                                                fontSize: '0.75rem',
+                                                color: 'var(--aurora-purple)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}>
+                                                ⏱️ {formatTimerTime(quest.timer.pauseHistory.reduce((sum, s) => sum + (s.duration || 0), 0))} total focus time
+                                            </span>
+                                        )}
                                     </div>
                                     <div style={{ maxHeight: showAllHistory ? '200px' : 'auto', overflowY: showAllHistory ? 'auto' : 'visible' }}>
                                         {historyToShow.map((entry, i) => {
                                             const percent = actualDuration ? Math.round((entry.currentTime / actualDuration) * 100) : 0;
                                             const sessionDuration = entry.metadata?.sessionDuration || 0;
+                                            // Use focusTime saved in metadata (from timer)
+                                            const focusTime = entry.metadata?.focusTime || 0;
+
                                             return (
                                                 <div key={i} style={{
                                                     padding: '10px 14px',
@@ -442,9 +952,23 @@ function QuestDetail() {
                                                                     fontWeight: 600
                                                                 }}>{percent}%</span>
                                                             </div>
-                                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                                                {formatFullTimestamp(entry.timestamp)}
-                                                                {sessionDuration > 0 && <span style={{ marginLeft: '8px', color: 'var(--aurora-blue)' }}>+{formatTimeShort(sessionDuration)} watched</span>}
+                                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                                <span>{formatFullTimestamp(entry.timestamp)}</span>
+                                                                {sessionDuration > 0 && (
+                                                                    <span style={{ color: 'var(--aurora-blue)' }}>
+                                                                        +{formatTimeShort(sessionDuration)} watched
+                                                                    </span>
+                                                                )}
+                                                                {focusTime > 0 && (
+                                                                    <span style={{
+                                                                        color: 'var(--aurora-purple)',
+                                                                        padding: '1px 6px',
+                                                                        background: 'rgba(139, 92, 246, 0.15)',
+                                                                        borderRadius: 'var(--radius-sm)'
+                                                                    }}>
+                                                                        ⏱️ {formatTimerTime(focusTime)} focus
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -589,25 +1113,32 @@ function QuestDetail() {
 
                 {/* ===== TASK / DSA QUEST LAYOUT ===== */}
                 {(isTaskQuest || isDsaQuest) && (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        <div style={{ flex: 1, background: 'var(--glass-bg)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--glass-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px', minHeight: 0, overflowY: 'auto' }}>
+                        <div style={{ background: 'var(--glass-bg)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--glass-border)', overflow: 'visible' }}>
                             <div style={{ height: '4px', background: type.gradient }}></div>
-                            <div style={{ flex: 1, padding: '32px', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ padding: '32px', display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                                     <div style={{ fontSize: '4rem', marginBottom: '16px', filter: 'drop-shadow(0 0 20px var(--aurora-teal))' }}>{type.icon}</div>
                                     <h1 style={{ fontSize: '2rem', margin: '0 0 12px 0', background: 'linear-gradient(135deg, var(--text-primary), var(--aurora-teal))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{quest.title}</h1>
                                     {quest.description && <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', margin: '0 auto', maxWidth: '600px', lineHeight: 1.6 }}>{quest.description}</p>}
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+                                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🆕</div>
+                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Created</div>
+                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{quest.createdAt ? new Date(quest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{quest.createdAt ? new Date(quest.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}</div>
+                                    </div>
                                     <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
                                         <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{quest.status === 'completed' ? '✅' : '⏳'}</div>
                                         <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Status</div>
                                         <div style={{ fontWeight: 600, color: quest.status === 'completed' ? 'var(--success)' : 'var(--aurora-teal)', textTransform: 'capitalize' }}>{quest.status}</div>
                                     </div>
-                                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
+                                    <div style={{ padding: '20px', background: isOverdue ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: isOverdue ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--glass-border)', textAlign: 'center' }}>
                                         <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{isOverdue ? '⚠️' : '📅'}</div>
-                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Deadline</div>
-                                        <div style={{ fontWeight: 600, color: isOverdue ? 'var(--error)' : 'var(--text-primary)' }}>{new Date(quest.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: isOverdue ? 'var(--error)' : 'var(--text-muted)', marginBottom: '4px' }}>{isOverdue ? 'Overdue' : 'Deadline'}</div>
+                                        <div style={{ fontWeight: 600, color: isOverdue ? 'var(--error)' : 'var(--text-primary)' }}>{new Date(quest.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{new Date(quest.deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
                                     </div>
                                     <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
                                         <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{complexity.icon}</div>
@@ -620,6 +1151,349 @@ function QuestDetail() {
                                         <div style={{ fontWeight: 700, background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{quest.xpReward} XP</div>
                                     </div>
                                 </div>
+
+                                {/* Timer Bar - Compact inline design */}
+                                {quest.timer?.enabled && (
+                                    <div style={{
+                                        marginBottom: '24px',
+                                        padding: '16px 24px',
+                                        background: timerRunning
+                                            ? 'linear-gradient(90deg, rgba(0, 255, 204, 0.15), rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.15))'
+                                            : 'rgba(255, 255, 255, 0.03)',
+                                        borderRadius: 'var(--radius-full)',
+                                        border: timerRunning
+                                            ? '1px solid rgba(0, 255, 204, 0.4)'
+                                            : '1px solid var(--glass-border)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '20px',
+                                        boxShadow: timerRunning ? '0 0 25px rgba(0, 255, 204, 0.2)' : 'none',
+                                        transition: 'all 0.3s ease'
+                                    }}>
+                                        {/* Left: Timer Display */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            {/* Circular indicator */}
+                                            <div style={{
+                                                width: '50px',
+                                                height: '50px',
+                                                borderRadius: '50%',
+                                                background: timerRunning
+                                                    ? 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-purple))'
+                                                    : 'rgba(139, 92, 246, 0.2)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                position: 'relative',
+                                                boxShadow: timerRunning ? '0 0 20px rgba(0, 255, 204, 0.4)' : 'none'
+                                            }}>
+                                                {timerRunning && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        inset: '-3px',
+                                                        borderRadius: '50%',
+                                                        border: '2px solid transparent',
+                                                        borderTopColor: 'var(--aurora-teal)',
+                                                        animation: 'spin 1s linear infinite'
+                                                    }} />
+                                                )}
+                                                <span style={{ fontSize: '1.25rem' }}>⏱️</span>
+                                            </div>
+
+                                            {/* Time display */}
+                                            <div>
+                                                <div style={{
+                                                    fontSize: '2rem',
+                                                    fontWeight: 800,
+                                                    fontFamily: 'monospace',
+                                                    color: timerRunning ? 'var(--aurora-teal)' : 'var(--text-primary)',
+                                                    lineHeight: 1,
+                                                    textShadow: timerRunning ? '0 0 20px rgba(0, 255, 204, 0.5)' : 'none'
+                                                }}>
+                                                    {formatTimerTime(timerTime)}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    color: 'var(--text-muted)',
+                                                    marginTop: '4px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px'
+                                                }}>
+                                                    {timerRunning ? (
+                                                        <>
+                                                            <span style={{
+                                                                width: '6px',
+                                                                height: '6px',
+                                                                borderRadius: '50%',
+                                                                background: 'var(--aurora-teal)',
+                                                                animation: 'pulse 1s ease-in-out infinite'
+                                                            }} />
+                                                            Running
+                                                        </>
+                                                    ) : timerTime > 0 ? 'Paused' : 'Not started'}
+                                                    {quest.timer.pauseHistory?.length > 0 && (
+                                                        <button
+                                                            onClick={() => setShowTimerHistory(!showTimerHistory)}
+                                                            style={{
+                                                                background: showTimerHistory ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                                                                border: 'none',
+                                                                cursor: 'pointer',
+                                                                color: 'var(--aurora-purple)',
+                                                                padding: '4px 8px',
+                                                                borderRadius: 'var(--radius-sm)',
+                                                                fontSize: '0.85rem',
+                                                                transition: 'all 0.2s ease'
+                                                            }}
+                                                        >
+                                                            • {quest.timer.pauseHistory.length} session{quest.timer.pauseHistory.length > 1 ? 's' : ''}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Center: Alarm Badge (if enabled) */}
+                                        {quest.timer?.alarmEnabled && (
+                                            <div style={{
+                                                padding: '6px 14px',
+                                                background: alarmTriggered
+                                                    ? 'rgba(239, 68, 68, 0.2)'
+                                                    : 'rgba(139, 92, 246, 0.15)',
+                                                borderRadius: 'var(--radius-full)',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 600,
+                                                color: alarmTriggered ? 'var(--error)' : 'var(--aurora-purple)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}>
+                                                🔔 {alarmTriggered ? 'Triggered!' : formatTimerTime(quest.timer.alarmSeconds || 1800)}
+                                            </div>
+                                        )}
+
+                                        {/* Right: Control Buttons */}
+                                        {quest.status === 'active' && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                {!timerRunning ? (
+                                                    <button
+                                                        onClick={startTimer}
+                                                        style={{
+                                                            width: '48px',
+                                                            height: '48px',
+                                                            borderRadius: '50%',
+                                                            background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))',
+                                                            border: 'none',
+                                                            color: 'white',
+                                                            fontSize: '1.25rem',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            boxShadow: '0 4px 15px rgba(0, 255, 204, 0.4)',
+                                                            transition: 'transform 0.2s ease'
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                                                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                    >
+                                                        ▶
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={pauseTimer}
+                                                        style={{
+                                                            width: '48px',
+                                                            height: '48px',
+                                                            borderRadius: '50%',
+                                                            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                                            border: 'none',
+                                                            color: 'white',
+                                                            fontSize: '1.25rem',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            boxShadow: '0 4px 15px rgba(245, 158, 11, 0.4)',
+                                                            transition: 'transform 0.2s ease'
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                                                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                    >
+                                                        ⏸
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={resetTimer}
+                                                    style={{
+                                                        width: '40px',
+                                                        height: '40px',
+                                                        borderRadius: '50%',
+                                                        background: 'transparent',
+                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                        color: 'var(--error)',
+                                                        fontSize: '1rem',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                    onMouseEnter={e => {
+                                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                        e.currentTarget.style.background = 'transparent';
+                                                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                                                    }}
+                                                >
+                                                    ↺
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Session History Section */}
+                                {showTimerHistory && quest.timer?.pauseHistory?.length > 0 && (
+                                    <div style={{
+                                        marginBottom: '24px',
+                                        padding: '20px',
+                                        background: 'rgba(139, 92, 246, 0.05)',
+                                        borderRadius: 'var(--radius-lg)',
+                                        border: '1px solid rgba(139, 92, 246, 0.15)'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            marginBottom: '16px'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <span style={{ fontSize: '1.25rem' }}>📊</span>
+                                                <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>Session History</span>
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    background: 'rgba(139, 92, 246, 0.2)',
+                                                    borderRadius: 'var(--radius-full)',
+                                                    fontSize: '0.75rem',
+                                                    color: 'var(--aurora-purple)'
+                                                }}>
+                                                    {quest.timer.pauseHistory.length} session{quest.timer.pauseHistory.length > 1 ? 's' : ''}
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowTimerHistory(false)}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'pointer',
+                                                    fontSize: '1.2rem'
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '8px',
+                                            maxHeight: '300px',
+                                            overflowY: 'auto'
+                                        }}>
+                                            {(() => {
+                                                // Calculate cumulative totals for each session
+                                                const sessions = quest.timer.pauseHistory.slice();
+                                                let runningTotal = 0;
+                                                const sessionsWithTotal = sessions.map(s => {
+                                                    runningTotal += (s.duration || 0);
+                                                    return { ...s, cumulativeTotal: runningTotal };
+                                                });
+
+                                                return sessionsWithTotal.slice().reverse().map((session, index) => (
+                                                    <div key={index} style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        padding: '12px 16px',
+                                                        background: 'rgba(0, 0, 0, 0.3)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        border: '1px solid var(--glass-border)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <span style={{
+                                                                width: '24px',
+                                                                height: '24px',
+                                                                borderRadius: '50%',
+                                                                background: 'linear-gradient(135deg, var(--aurora-purple), var(--aurora-pink))',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 700,
+                                                                color: 'white'
+                                                            }}>
+                                                                {sessionsWithTotal.length - index}
+                                                            </span>
+                                                            <div>
+                                                                <div style={{
+                                                                    fontWeight: 600,
+                                                                    fontSize: '0.9rem',
+                                                                    color: 'var(--aurora-teal)',
+                                                                    fontFamily: 'monospace'
+                                                                }}>
+                                                                    +{formatTimerTime(session.duration || 0)}
+                                                                </div>
+                                                                <div style={{
+                                                                    fontSize: '0.75rem',
+                                                                    color: 'var(--text-muted)'
+                                                                }}>
+                                                                    {new Date(session.pausedAt).toLocaleString('en-US', {
+                                                                        month: 'short',
+                                                                        day: 'numeric',
+                                                                        hour: 'numeric',
+                                                                        minute: '2-digit',
+                                                                        hour12: true
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{
+                                                            fontSize: '0.8rem',
+                                                            color: 'var(--text-muted)'
+                                                        }}>
+                                                            Cumulative: {formatTimerTime(session.cumulativeTotal)}
+                                                        </div>
+                                                    </div>
+                                                ));
+                                            })()}
+                                        </div>
+                                        {/* Total Time Summary */}
+                                        <div style={{
+                                            marginTop: '16px',
+                                            padding: '12px 16px',
+                                            background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.1), rgba(139, 92, 246, 0.1))',
+                                            borderRadius: 'var(--radius-md)',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                Total Time Invested
+                                            </span>
+                                            <span style={{
+                                                fontSize: '1.1rem',
+                                                fontWeight: 700,
+                                                fontFamily: 'monospace',
+                                                color: 'var(--aurora-teal)'
+                                            }}>
+                                                {formatTimerTime(quest.timer.pauseHistory.reduce((sum, s) => sum + (s.duration || 0), 0))}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {quest.llmAnalysis?.reasoning && (
                                     <div style={{ padding: '16px 20px', background: 'rgba(139, 92, 246, 0.08)', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '24px' }}>
                                         <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, var(--aurora-purple), var(--aurora-pink))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', flexShrink: 0 }}>🤖</div>

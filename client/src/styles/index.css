@@ -1578,3 +1578,63 @@ h4 {
   background: var(--aurora-teal);
   color: var(--bg-primary);
 }
+
+/* ============================================
+   Custom Tooltip - Shows on Hover
+   ============================================ */
+.custom-tooltip-container {
+  position: relative;
+  display: inline-block;
+}
+
+.custom-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px) scale(0.9);
+  background: rgba(10, 15, 28, 0.95);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  text-align: center;
+  min-width: 120px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 255, 204, 0.1);
+  margin-bottom: 8px;
+}
+
+.custom-tooltip-container:hover .custom-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.custom-tooltip .tooltip-label {
+  display: block;
+  font-weight: 700;
+  color: var(--aurora-teal);
+  margin-bottom: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.custom-tooltip .tooltip-date {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.custom-tooltip .tooltip-time {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  margin-top: 2px;
+}

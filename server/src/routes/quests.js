@@ -9,11 +9,16 @@ const router = express.Router();
 // GET /api/quests - List all quests with optional filters
 router.get('/', async (req, res, next) => {
     try {
-        const { status, type, week } = req.query;
+        const { status, type, week, dateFrom, dateTo, dateField = 'deadline', dateRanges, spilled } = req.query;
         const filter = {};
 
         if (status) filter.status = status;
         if (type) filter.type = type;
+
+        // Filter for spilled quests only
+        if (spilled === 'true') {
+            filter.spillCount = { $gt: 0 };
+        }
 
         // Filter by target week
         if (week === 'current') {
@@ -26,6 +31,55 @@ router.get('/', async (req, res, next) => {
             const nextMonday = new Date(currentMonday);
             nextMonday.setDate(nextMonday.getDate() + 7);
             filter.targetWeek = { $gte: nextMonday };
+        }
+
+        const allowedDateFields = ['createdAt', 'deadline', 'completedAt'];
+        const filterField = allowedDateFields.includes(dateField) ? dateField : 'deadline';
+
+        // Multiple date ranges (OR condition)
+        // Format: dateRanges=[{"from":"2024-01-01","to":"2024-01-31"},{"from":"2024-03-01","to":"2024-03-31"}]
+        if (dateRanges) {
+            try {
+                const ranges = JSON.parse(dateRanges);
+                if (Array.isArray(ranges) && ranges.length > 0) {
+                    const orConditions = ranges.map(range => {
+                        const condition = {};
+                        if (range.from) {
+                            const fromDate = new Date(range.from);
+                            fromDate.setHours(0, 0, 0, 0);
+                            condition[filterField] = condition[filterField] || {};
+                            condition[filterField].$gte = fromDate;
+                        }
+                        if (range.to) {
+                            const toDate = new Date(range.to);
+                            toDate.setHours(23, 59, 59, 999);
+                            condition[filterField] = condition[filterField] || {};
+                            condition[filterField].$lte = toDate;
+                        }
+                        return condition;
+                    }).filter(c => Object.keys(c).length > 0);
+
+                    if (orConditions.length > 0) {
+                        filter.$or = orConditions;
+                    }
+                }
+            } catch (e) {
+                console.error('Invalid dateRanges format:', e);
+            }
+        }
+        // Single date range (backward compatible)
+        else if (dateFrom || dateTo) {
+            filter[filterField] = {};
+            if (dateFrom) {
+                const fromDate = new Date(dateFrom);
+                fromDate.setHours(0, 0, 0, 0);
+                filter[filterField].$gte = fromDate;
+            }
+            if (dateTo) {
+                const toDate = new Date(dateTo);
+                toDate.setHours(23, 59, 59, 999);
+                filter[filterField].$lte = toDate;
+            }
         }
 
         const quests = await Quest.find(filter)
@@ -125,16 +179,33 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/quests - Create new quest
 router.post('/', async (req, res, next) => {
     try {
-        const { type, title, description, deadline, youtube, dsa } = req.body;
+        const { type, title, description, deadline, youtube, dsa, timer } = req.body;
+
+        // Normalize deadline to end of day (23:59:59)
+        let normalizedDeadline = new Date(deadline || Quest.getNextMonday());
+        normalizedDeadline.setHours(23, 59, 59, 999);
 
         // Create base quest
         const questData = {
             type,
             title,
             description,
-            deadline: deadline || Quest.getNextMonday(),
+            deadline: normalizedDeadline,
             targetWeek: Quest.getCurrentMonday()
         };
+
+        // Handle timer settings
+        if (timer && timer.enabled) {
+            questData.timer = {
+                enabled: true,
+                currentTime: 0,
+                isRunning: false,
+                alarmEnabled: timer.alarmEnabled || false,
+                alarmSeconds: timer.alarmSeconds || 1800,
+                alarmTriggered: false,
+                pauseHistory: []
+            };
+        }
 
         // Handle YouTube quest
         if (type === 'youtube' && youtube?.videoUrl) {
@@ -201,7 +272,11 @@ router.put('/:id', async (req, res, next) => {
 
         if (title) quest.title = title;
         if (description !== undefined) quest.description = description;
-        if (deadline) quest.deadline = new Date(deadline);
+        if (deadline) {
+            const normalizedDeadline = new Date(deadline);
+            normalizedDeadline.setHours(23, 59, 59, 999);
+            quest.deadline = normalizedDeadline;
+        }
         if (status) quest.status = status;
 
         if (youtube && quest.type === 'youtube') {
@@ -306,4 +381,156 @@ router.post('/process-spillage', async (req, res, next) => {
     }
 });
 
+// ============ TIMER ENDPOINTS ============
+
+// PUT /api/quests/:id/timer/start - Start or resume timer
+router.put('/:id/timer/start', async (req, res, next) => {
+    try {
+        const quest = await Quest.findById(req.params.id);
+        if (!quest) {
+            return res.status(404).json({ error: 'Quest not found' });
+        }
+
+        if (!quest.timer?.enabled) {
+            return res.status(400).json({ error: 'Timer not enabled for this quest' });
+        }
+
+        if (quest.timer.isRunning) {
+            return res.status(400).json({ error: 'Timer already running' });
+        }
+
+        // If there's an incomplete pause entry (paused but not resumed), mark it as resumed
+        if (quest.timer.pauseHistory && quest.timer.pauseHistory.length > 0) {
+            const lastEntry = quest.timer.pauseHistory[quest.timer.pauseHistory.length - 1];
+            if (lastEntry && !lastEntry.resumedAt) {
+                lastEntry.resumedAt = new Date();
+            }
+        }
+
+        quest.timer.isRunning = true;
+        quest.timer.lastStartedAt = new Date();
+
+        await quest.save();
+        res.json({ quest, message: 'Timer started' });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// PUT /api/quests/:id/timer/pause - Pause timer and save session
+router.put('/:id/timer/pause', async (req, res, next) => {
+    try {
+        const quest = await Quest.findById(req.params.id);
+        if (!quest) {
+            return res.status(404).json({ error: 'Quest not found' });
+        }
+
+        if (!quest.timer?.enabled) {
+            return res.status(400).json({ error: 'Timer not enabled for this quest' });
+        }
+
+        if (!quest.timer.isRunning) {
+            return res.status(400).json({ error: 'Timer not running' });
+        }
+
+        const { reason, currentTime } = req.body;
+        const now = new Date();
+
+        // Calculate session duration (from lastStartedAt to now)
+        const sessionDuration = quest.timer.lastStartedAt
+            ? Math.floor((now - quest.timer.lastStartedAt) / 1000)
+            : 0;
+
+        // Update current time with session duration
+        const newCurrentTime = currentTime !== undefined
+            ? currentTime
+            : (quest.timer.currentTime || 0) + sessionDuration;
+
+        // Add to pause history only if duration > 0
+        if (sessionDuration > 0) {
+            quest.timer.pauseHistory.push({
+                pausedAt: now,
+                duration: sessionDuration,
+                reason: reason || ''
+            });
+        }
+
+        quest.timer.currentTime = newCurrentTime;
+        quest.timer.isRunning = false;
+        quest.timer.lastStartedAt = null;
+
+        await quest.save();
+        res.json({
+            quest,
+            message: 'Timer paused',
+            sessionDuration,
+            totalTime: quest.timer.currentTime
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// PUT /api/quests/:id/timer/reset - Reset timer to 0
+router.put('/:id/timer/reset', async (req, res, next) => {
+    try {
+        const quest = await Quest.findById(req.params.id);
+        if (!quest) {
+            return res.status(404).json({ error: 'Quest not found' });
+        }
+
+        if (!quest.timer?.enabled) {
+            return res.status(400).json({ error: 'Timer not enabled for this quest' });
+        }
+
+        quest.timer.currentTime = 0;
+        quest.timer.isRunning = false;
+        quest.timer.lastStartedAt = null;
+        quest.timer.alarmTriggered = false;
+        // Keep pauseHistory for audit purposes, or clear with: quest.timer.pauseHistory = [];
+
+        await quest.save();
+        res.json({ quest, message: 'Timer reset' });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// PUT /api/quests/:id/timer/sync - Sync current time (periodic saves while running)
+router.put('/:id/timer/sync', async (req, res, next) => {
+    try {
+        const quest = await Quest.findById(req.params.id);
+        if (!quest) {
+            return res.status(404).json({ error: 'Quest not found' });
+        }
+
+        if (!quest.timer?.enabled) {
+            return res.status(400).json({ error: 'Timer not enabled for this quest' });
+        }
+
+        const { currentTime } = req.body;
+        if (currentTime !== undefined) {
+            quest.timer.currentTime = currentTime;
+        }
+
+        // Check if alarm should trigger
+        if (quest.timer.alarmEnabled && !quest.timer.alarmTriggered) {
+            const alarmThreshold = quest.timer.alarmSeconds || 1800;
+            if (quest.timer.currentTime >= alarmThreshold) {
+                quest.timer.alarmTriggered = true;
+            }
+        }
+
+        await quest.save();
+        res.json({
+            quest,
+            alarmTriggered: quest.timer.alarmTriggered,
+            message: 'Timer synced'
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;
+

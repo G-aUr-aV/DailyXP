@@ -16,7 +16,13 @@ function CreateQuest() {
         platform: 'leetcode',
         problemUrl: '',
         difficulty: 'medium',
-        topics: ''
+        topics: '',
+        // Timer settings
+        timerEnabled: false,
+        alarmEnabled: false,
+        alarmHours: 0,
+        alarmMinutes: 1,
+        alarmSeconds: 0
     });
 
     function getComingSunday() {
@@ -46,6 +52,21 @@ function CreateQuest() {
                 description: formData.description,
                 deadline: formData.deadline
             };
+
+            // Add timer settings if enabled
+            if (formData.timerEnabled) {
+                // Calculate total alarm time in seconds
+                const alarmTotalSeconds =
+                    (parseInt(formData.alarmHours) || 0) * 3600 +
+                    (parseInt(formData.alarmMinutes) || 0) * 60 +
+                    (parseInt(formData.alarmSeconds) || 0);
+
+                questData.timer = {
+                    enabled: true,
+                    alarmEnabled: formData.alarmEnabled,
+                    alarmSeconds: alarmTotalSeconds || 1800 // Default 30 min = 1800 seconds
+                };
+            }
 
             if (formData.type === 'youtube') {
                 questData.youtube = { videoUrl: formData.videoUrl };
@@ -370,6 +391,208 @@ function CreateQuest() {
                                     style={{ colorScheme: 'dark', padding: '10px 12px', width: '180px' }}
                                 />
                             </div>
+                        </div>
+
+                        {/* Timer Configuration */}
+                        <div style={{
+                            padding: '16px',
+                            background: formData.timerEnabled
+                                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.05))'
+                                : 'rgba(255, 255, 255, 0.02)',
+                            borderRadius: 'var(--radius-md)',
+                            border: formData.timerEnabled
+                                ? '2px solid rgba(139, 92, 246, 0.4)'
+                                : '1px solid var(--glass-border)',
+                            transition: 'all 0.3s ease'
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                marginBottom: formData.timerEnabled ? '14px' : 0
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{ fontSize: '1.25rem' }}>⏱️</span>
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: formData.timerEnabled ? 'var(--aurora-purple)' : 'var(--text-secondary)' }}>
+                                            Enable Timer
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                            Track time spent on this quest
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({
+                                        ...prev,
+                                        timerEnabled: !prev.timerEnabled,
+                                        alarmEnabled: !prev.timerEnabled ? prev.alarmEnabled : false
+                                    }))}
+                                    style={{
+                                        width: '52px',
+                                        height: '28px',
+                                        borderRadius: '14px',
+                                        border: 'none',
+                                        background: formData.timerEnabled
+                                            ? 'linear-gradient(135deg, var(--aurora-purple), var(--aurora-teal))'
+                                            : 'rgba(255, 255, 255, 0.1)',
+                                        cursor: 'pointer',
+                                        position: 'relative',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '22px',
+                                        height: '22px',
+                                        borderRadius: '50%',
+                                        background: 'white',
+                                        position: 'absolute',
+                                        top: '3px',
+                                        left: formData.timerEnabled ? '27px' : '3px',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                    }} />
+                                </button>
+                            </div>
+
+                            {/* Alarm settings - only visible when timer enabled */}
+                            {formData.timerEnabled && (
+                                <div style={{
+                                    paddingTop: '14px',
+                                    borderTop: '1px solid rgba(139, 92, 246, 0.2)'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: formData.alarmEnabled ? '12px' : 0
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <span style={{ fontSize: '1rem' }}>🔔</span>
+                                            <div>
+                                                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: formData.alarmEnabled ? 'var(--aurora-teal)' : 'var(--text-secondary)' }}>
+                                                    Set Alarm
+                                                </div>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                                    Get notified after set time
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, alarmEnabled: !prev.alarmEnabled }))}
+                                            style={{
+                                                width: '44px',
+                                                height: '24px',
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                background: formData.alarmEnabled
+                                                    ? 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))'
+                                                    : 'rgba(255, 255, 255, 0.1)',
+                                                cursor: 'pointer',
+                                                position: 'relative',
+                                                transition: 'all 0.3s ease'
+                                            }}
+                                        >
+                                            <div style={{
+                                                width: '18px',
+                                                height: '18px',
+                                                borderRadius: '50%',
+                                                background: 'white',
+                                                position: 'absolute',
+                                                top: '3px',
+                                                left: formData.alarmEnabled ? '23px' : '3px',
+                                                transition: 'all 0.3s ease',
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                            }} />
+                                        </button>
+                                    </div>
+
+                                    {/* Alarm duration input */}
+                                    {formData.alarmEnabled && (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '12px 14px',
+                                            background: 'rgba(0, 255, 204, 0.08)',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid rgba(0, 255, 204, 0.2)',
+                                            flexWrap: 'wrap'
+                                        }}>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '4px' }}>Ring after</span>
+
+                                            {/* Hours */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <input
+                                                    type="number"
+                                                    name="alarmHours"
+                                                    value={formData.alarmHours}
+                                                    onChange={handleChange}
+                                                    min="0"
+                                                    max="23"
+                                                    className="form-input"
+                                                    style={{
+                                                        width: '50px',
+                                                        padding: '6px 8px',
+                                                        textAlign: 'center',
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: 600
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>h</span>
+                                            </div>
+
+                                            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>:</span>
+
+                                            {/* Minutes */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <input
+                                                    type="number"
+                                                    name="alarmMinutes"
+                                                    value={formData.alarmMinutes}
+                                                    onChange={handleChange}
+                                                    min="0"
+                                                    max="59"
+                                                    className="form-input"
+                                                    style={{
+                                                        width: '50px',
+                                                        padding: '6px 8px',
+                                                        textAlign: 'center',
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: 600
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>m</span>
+                                            </div>
+
+                                            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>:</span>
+
+                                            {/* Seconds */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <input
+                                                    type="number"
+                                                    name="alarmSeconds"
+                                                    value={formData.alarmSeconds}
+                                                    onChange={handleChange}
+                                                    min="0"
+                                                    max="59"
+                                                    className="form-input"
+                                                    style={{
+                                                        width: '50px',
+                                                        padding: '6px 8px',
+                                                        textAlign: 'center',
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: 600
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>s</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Spacer */}

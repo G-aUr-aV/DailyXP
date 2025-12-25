@@ -37,18 +37,18 @@ function StatsPanel({ stats }) {
             </div>
 
             <div className="stats-grid">
-                <div className="stat-item">
+                <div className="stat-item animate-float">
                     <div className="stat-value">
                         {stats.streak > 0 && <span className="streak-fire">🔥</span>}
                         {stats.streak}
                     </div>
                     <div className="stat-label">Day Streak</div>
                 </div>
-                <div className="stat-item">
+                <div className="stat-item animate-float-delayed">
                     <div className="stat-value">{stats.questsCompleted}</div>
                     <div className="stat-label">Quests Done</div>
                 </div>
-                <div className="stat-item">
+                <div className="stat-item animate-float-delayed-2">
                     <div className="stat-value">{stats.weekly?.progress || 0}%</div>
                     <div className="stat-label">Weekly Goal</div>
                 </div>
