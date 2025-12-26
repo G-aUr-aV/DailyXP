@@ -7,6 +7,16 @@ import { QUEST_TYPE_CONFIG, QUEST_COMPLEXITY_CONFIG } from '../utils/constants';
 
 function QuestCard({ quest, onComplete }) {
     const [isHovered, setIsHovered] = useState(false);
+    const [isClicked, setIsClicked] = useState(false);
+
+    // Temporary splash effect on click
+    const handleCardClick = (e) => {
+        // Don't trigger splash for buttons/links (let them handle their own click)
+        if (e.target.closest('button') || e.target.closest('a')) return;
+
+        setIsClicked(true);
+        setTimeout(() => setIsClicked(false), 600);
+    };
 
     // Compute derived values
     const daysRemaining = getDaysRemaining(quest.deadline);
@@ -16,15 +26,37 @@ function QuestCard({ quest, onComplete }) {
     const typeConfig = QUEST_TYPE_CONFIG[quest.type] || QUEST_TYPE_CONFIG.task;
     const complexityConfig = QUEST_COMPLEXITY_CONFIG[quest.complexity] || QUEST_COMPLEXITY_CONFIG.medium;
 
-    // Get wave color based on quest type
-    const getWaveColor = () => {
+    // Wave colors configuration for layered effect
+    const getWaveColors = () => {
         switch (quest.type) {
-            case 'youtube': return 'rgba(255, 123, 84, 0.15)';
-            case 'dsa': return 'rgba(139, 92, 246, 0.15)';
-            case 'task': return 'rgba(59, 130, 246, 0.15)';
-            default: return 'rgba(0, 255, 204, 0.12)';
+            case 'youtube':
+                return {
+                    front: 'rgba(14, 165, 233, 0.25)',
+                    middle: 'rgba(14, 165, 233, 0.15)',
+                    back: 'rgba(14, 165, 233, 0.08)'
+                };
+            case 'dsa':
+                return {
+                    front: 'rgba(129, 140, 248, 0.25)',
+                    middle: 'rgba(129, 140, 248, 0.15)',
+                    back: 'rgba(129, 140, 248, 0.08)'
+                };
+            case 'task':
+                return {
+                    front: 'rgba(59, 130, 246, 0.25)',
+                    middle: 'rgba(59, 130, 246, 0.15)',
+                    back: 'rgba(59, 130, 246, 0.08)'
+                };
+            default:
+                return {
+                    front: 'rgba(0, 255, 204, 0.2)',
+                    middle: 'rgba(0, 255, 204, 0.12)',
+                    back: 'rgba(0, 255, 204, 0.06)'
+                };
         }
     };
+
+    const waveColors = getWaveColors();
 
     const getDeadlineStyle = () => {
         if (isOverdue) return { color: 'var(--error)', fontWeight: 600 };
@@ -48,35 +80,76 @@ function QuestCard({ quest, onComplete }) {
             data-type={quest.type}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            onClick={handleCardClick}
+            style={{ cursor: 'pointer' }}
         >
-            {/* Realistic Wave Animation */}
+            {/* Realistic Layered Wave Animation */}
             <div
                 style={{
                     position: 'absolute',
                     bottom: 0,
                     left: 0,
                     width: '100%',
-                    height: isHovered ? '60%' : '0%',
-                    transition: 'height 1.5s ease-out',
+                    height: isHovered || isClicked ? '60%' : '0%',
+                    transition: isClicked ? 'height 0.15s ease-out' : 'height 1.8s cubic-bezier(0.33, 1, 0.68, 1)',
                     overflow: 'hidden',
                     zIndex: 0
                 }}
             >
+                {/* Back wave layer - shifts left, creates depth on left side */}
                 <Wave
-                    fill={getWaveColor()}
+                    fill={waveColors.back}
                     paused={false}
                     style={{
-                        display: 'flex',
                         position: 'absolute',
                         bottom: 0,
-                        width: '100%',
-                        height: '100%'
+                        left: '-10%',
+                        width: '120%',
+                        height: '140%',
+                        transform: 'skewX(-3deg)'
                     }}
                     options={{
-                        height: 15,
-                        amplitude: isHovered ? 20 : 5,
-                        speed: 0.2,
+                        height: 25,
+                        amplitude: isClicked ? 20 : (isHovered ? 12 : 8),
+                        speed: isClicked ? 0.15 : 0.05,
+                        points: 3
+                    }}
+                />
+                {/* Middle wave layer - centered, bridge between left and right */}
+                <Wave
+                    fill={waveColors.middle}
+                    paused={false}
+                    style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: '0',
+                        width: '100%',
+                        height: '115%'
+                    }}
+                    options={{
+                        height: 20,
+                        amplitude: isClicked ? 28 : (isHovered ? 18 : 10),
+                        speed: isClicked ? 0.22 : 0.1,
                         points: 4
+                    }}
+                />
+                {/* Front wave layer - shifts right, creates depth on right side */}
+                <Wave
+                    fill={waveColors.front}
+                    paused={false}
+                    style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: '-10%',
+                        width: '120%',
+                        height: '95%',
+                        transform: 'skewX(3deg)'
+                    }}
+                    options={{
+                        height: 18,
+                        amplitude: isClicked ? 32 : (isHovered ? 20 : 12),
+                        speed: isClicked ? 0.3 : 0.15,
+                        points: 6
                     }}
                 />
             </div>

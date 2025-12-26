@@ -316,11 +316,15 @@ function RunningTimerCard({ quest, elapsed }) {
             }}
             onMouseEnter={e => {
                 e.currentTarget.style.background = 'rgba(0, 255, 204, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(0, 255, 204, 0.5)';
+                e.currentTarget.style.border = '2px solid rgba(0, 255, 204, 0.8)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 255, 204, 0.2)';
             }}
             onMouseLeave={e => {
                 e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)';
-                e.currentTarget.style.borderColor = 'rgba(0, 255, 204, 0.2)';
+                e.currentTarget.style.border = '1px solid rgba(0, 255, 204, 0.2)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

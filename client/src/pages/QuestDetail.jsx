@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import Wave from 'react-wavify';
 import { questAPI, videoProgressAPI, statsAPI } from '../services/api';
 
 function QuestDetail() {
@@ -28,6 +29,8 @@ function QuestDetail() {
     const timerIntervalRef = useRef(null);
     const [alarmTriggered, setAlarmTriggered] = useState(false);
     const [alarmRinging, setAlarmRinging] = useState(false);
+    const [hoveredTile, setHoveredTile] = useState(null);
+    const [hoveredBlock, setHoveredBlock] = useState(null);
     const alarmAudioRef = useRef(null);
 
     useEffect(() => { fetchQuest(); }, [id]);
@@ -522,9 +525,18 @@ function QuestDetail() {
     };
 
     const typeConfig = {
-        youtube: { icon: '📺', label: 'YouTube Tutorial', color: '#ff7b54', bg: 'rgba(255, 123, 84, 0.15)', gradient: 'linear-gradient(135deg, #ff7b54, #ffab76)' },
-        dsa: { icon: '💻', label: 'DSA Problem', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
-        task: { icon: '📋', label: 'Task', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' }
+        youtube: {
+            icon: '📺', label: 'YouTube Tutorial', color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.15)', gradient: 'linear-gradient(135deg, #0ea5e9, #38bdf8)',
+            waveColors: { front: 'rgba(14, 165, 233, 0.2)', middle: 'rgba(14, 165, 233, 0.12)', back: 'rgba(14, 165, 233, 0.06)' }
+        },
+        dsa: {
+            icon: '💻', label: 'DSA Problem', color: '#818cf8', bg: 'rgba(129, 140, 248, 0.15)', gradient: 'linear-gradient(135deg, #818cf8, #a5b4fc)',
+            waveColors: { front: 'rgba(129, 140, 248, 0.2)', middle: 'rgba(129, 140, 248, 0.12)', back: 'rgba(129, 140, 248, 0.06)' }
+        },
+        task: {
+            icon: '📋', label: 'Task', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
+            waveColors: { front: 'rgba(59, 130, 246, 0.2)', middle: 'rgba(59, 130, 246, 0.12)', back: 'rgba(59, 130, 246, 0.06)' }
+        }
     };
     const complexityConfig = {
         easy: { label: 'Easy', color: '#22c55e', icon: '🌱' },
@@ -547,6 +559,9 @@ function QuestDetail() {
 
     // History items to show
     const historyToShow = showAllHistory ? progressHistory : progressHistory.slice(0, 3);
+
+    // Wave colors for stat tiles
+    const waveColors = type.waveColors || { front: 'rgba(59, 130, 246, 0.2)', middle: 'rgba(59, 130, 246, 0.12)', back: 'rgba(59, 130, 246, 0.06)' };
 
     return (
         <div style={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
@@ -707,7 +722,23 @@ function QuestDetail() {
 
                             {/* AI Analysis */}
                             {quest.llmAnalysis?.reasoning && (
-                                <div style={{ padding: '12px', background: 'rgba(139, 92, 246, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                <div
+                                    onMouseEnter={() => setHoveredBlock('ai-youtube')}
+                                    onMouseLeave={() => setHoveredBlock(null)}
+                                    style={{
+                                        padding: '12px',
+                                        background: 'rgba(139, 92, 246, 0.08)',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: hoveredBlock === 'ai-youtube' ? `2px solid ${type.color}` : '1px solid rgba(139, 92, 246, 0.2)',
+                                        display: 'flex',
+                                        gap: '10px',
+                                        alignItems: 'flex-start',
+                                        transition: 'all 0.3s ease',
+                                        transform: hoveredBlock === 'ai-youtube' ? 'translateY(-2px)' : 'translateY(0)',
+                                        boxShadow: hoveredBlock === 'ai-youtube' ? `0 8px 25px ${type.color}15` : 'none',
+                                        cursor: 'default'
+                                    }}
+                                >
                                     <span style={{ fontSize: '1rem' }}>🤖</span>
                                     <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{quest.llmAnalysis.reasoning}</p>
                                 </div>
@@ -715,22 +746,33 @@ function QuestDetail() {
 
                             {/* Timer Bar for YouTube Quest */}
                             {quest.timer?.enabled && (
-                                <div style={{
-                                    padding: '14px 16px',
-                                    background: timerRunning
-                                        ? 'linear-gradient(90deg, rgba(0, 255, 204, 0.15), rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.15))'
-                                        : 'rgba(255, 255, 255, 0.03)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    border: timerRunning
-                                        ? '1px solid rgba(0, 255, 204, 0.4)'
-                                        : '1px solid var(--glass-border)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    gap: '12px',
-                                    boxShadow: timerRunning ? '0 0 20px rgba(0, 255, 204, 0.2)' : 'none',
-                                    transition: 'all 0.3s ease'
-                                }}>
+                                <div
+                                    onMouseEnter={() => setHoveredBlock('timer-youtube')}
+                                    onMouseLeave={() => setHoveredBlock(null)}
+                                    style={{
+                                        padding: '14px 16px',
+                                        background: timerRunning
+                                            ? 'linear-gradient(90deg, rgba(0, 255, 204, 0.15), rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.15))'
+                                            : 'rgba(255, 255, 255, 0.03)',
+                                        borderRadius: 'var(--radius-lg)',
+                                        border: hoveredBlock === 'timer-youtube'
+                                            ? `2px solid ${type.color}`
+                                            : timerRunning
+                                                ? '1px solid rgba(0, 255, 204, 0.4)'
+                                                : '1px solid var(--glass-border)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '12px',
+                                        boxShadow: hoveredBlock === 'timer-youtube'
+                                            ? `0 8px 30px ${type.color}20`
+                                            : timerRunning
+                                                ? '0 0 20px rgba(0, 255, 204, 0.2)'
+                                                : 'none',
+                                        transition: 'all 0.3s ease',
+                                        transform: hoveredBlock === 'timer-youtube' ? 'translateY(-2px)' : 'translateY(0)',
+                                        cursor: 'default'
+                                    }}>
                                     {/* Timer Display */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <div style={{
@@ -1123,54 +1165,199 @@ function QuestDetail() {
                                     {quest.description && <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', margin: '0 auto', maxWidth: '600px', lineHeight: 1.6 }}>{quest.description}</p>}
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-                                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🆕</div>
-                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Created</div>
-                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{quest.createdAt ? new Date(quest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</div>
-                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{quest.createdAt ? new Date(quest.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}</div>
+                                    {/* Created Tile */}
+                                    <div
+                                        onMouseEnter={() => setHoveredTile('created')}
+                                        onMouseLeave={() => setHoveredTile(null)}
+                                        style={{
+                                            padding: '20px',
+                                            background: 'var(--glass-bg)',
+                                            backdropFilter: 'blur(16px)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: hoveredTile === 'created' ? `2px solid ${type.color}` : '1px solid var(--glass-border)',
+                                            textAlign: 'center',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            cursor: 'default',
+                                            transition: 'all 0.3s ease',
+                                            transform: hoveredTile === 'created' ? 'translateY(-4px)' : 'translateY(0)',
+                                            boxShadow: hoveredTile === 'created' ? `var(--shadow-md), 0 0 30px ${type.color}20` : 'none'
+                                        }}
+                                    >
+                                        <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', borderRadius: '4px 0 0 4px', background: hoveredTile === 'created' ? type.gradient : 'transparent', boxShadow: hoveredTile === 'created' ? `0 0 15px ${type.color}50` : 'none', transition: 'all 0.3s ease' }} />
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: hoveredTile === 'created' ? '60%' : '0%', transition: 'height 1.8s cubic-bezier(0.33, 1, 0.68, 1)', overflow: 'hidden', zIndex: 0 }}>
+                                            <Wave fill={waveColors.back} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '140%', transform: 'skewX(-3deg)' }} options={{ height: 25, amplitude: 12, speed: 0.05, points: 3 }} />
+                                            <Wave fill={waveColors.middle} paused={false} style={{ position: 'absolute', bottom: 0, left: '0', width: '100%', height: '115%' }} options={{ height: 20, amplitude: 18, speed: 0.1, points: 4 }} />
+                                            <Wave fill={waveColors.front} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '95%', transform: 'skewX(3deg)' }} options={{ height: 18, amplitude: 20, speed: 0.15, points: 6 }} />
+                                        </div>
+                                        <div style={{ position: 'relative', zIndex: 1 }}>
+                                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🆕</div>
+                                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Created</div>
+                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{quest.createdAt ? new Date(quest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{quest.createdAt ? new Date(quest.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}</div>
+                                        </div>
                                     </div>
-                                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{quest.status === 'completed' ? '✅' : '⏳'}</div>
-                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Status</div>
-                                        <div style={{ fontWeight: 600, color: quest.status === 'completed' ? 'var(--success)' : 'var(--aurora-teal)', textTransform: 'capitalize' }}>{quest.status}</div>
+
+                                    {/* Status Tile */}
+                                    <div
+                                        onMouseEnter={() => setHoveredTile('status')}
+                                        onMouseLeave={() => setHoveredTile(null)}
+                                        style={{
+                                            padding: '20px',
+                                            background: 'var(--glass-bg)',
+                                            backdropFilter: 'blur(16px)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: hoveredTile === 'status' ? `2px solid ${type.color}` : '1px solid var(--glass-border)',
+                                            textAlign: 'center',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            cursor: 'default',
+                                            transition: 'all 0.3s ease',
+                                            transform: hoveredTile === 'status' ? 'translateY(-4px)' : 'translateY(0)',
+                                            boxShadow: hoveredTile === 'status' ? `var(--shadow-md), 0 0 30px ${type.color}20` : 'none'
+                                        }}
+                                    >
+                                        <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', borderRadius: '4px 0 0 4px', background: hoveredTile === 'status' ? type.gradient : 'transparent', boxShadow: hoveredTile === 'status' ? `0 0 15px ${type.color}50` : 'none', transition: 'all 0.3s ease' }} />
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: hoveredTile === 'status' ? '60%' : '0%', transition: 'height 1.8s cubic-bezier(0.33, 1, 0.68, 1)', overflow: 'hidden', zIndex: 0 }}>
+                                            <Wave fill={waveColors.back} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '140%', transform: 'skewX(-3deg)' }} options={{ height: 25, amplitude: 12, speed: 0.05, points: 3 }} />
+                                            <Wave fill={waveColors.middle} paused={false} style={{ position: 'absolute', bottom: 0, left: '0', width: '100%', height: '115%' }} options={{ height: 20, amplitude: 18, speed: 0.1, points: 4 }} />
+                                            <Wave fill={waveColors.front} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '95%', transform: 'skewX(3deg)' }} options={{ height: 18, amplitude: 20, speed: 0.15, points: 6 }} />
+                                        </div>
+                                        <div style={{ position: 'relative', zIndex: 1 }}>
+                                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{quest.status === 'completed' ? '✅' : '⏳'}</div>
+                                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Status</div>
+                                            <div style={{ fontWeight: 600, color: quest.status === 'completed' ? 'var(--success)' : 'var(--aurora-teal)', textTransform: 'capitalize' }}>{quest.status}</div>
+                                        </div>
                                     </div>
-                                    <div style={{ padding: '20px', background: isOverdue ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: isOverdue ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--glass-border)', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{isOverdue ? '⚠️' : '📅'}</div>
-                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: isOverdue ? 'var(--error)' : 'var(--text-muted)', marginBottom: '4px' }}>{isOverdue ? 'Overdue' : 'Deadline'}</div>
-                                        <div style={{ fontWeight: 600, color: isOverdue ? 'var(--error)' : 'var(--text-primary)' }}>{new Date(quest.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{new Date(quest.deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+
+                                    {/* Deadline Tile */}
+                                    <div
+                                        onMouseEnter={() => setHoveredTile('deadline')}
+                                        onMouseLeave={() => setHoveredTile(null)}
+                                        style={{
+                                            padding: '20px',
+                                            background: isOverdue ? 'rgba(239, 68, 68, 0.08)' : 'var(--glass-bg)',
+                                            backdropFilter: 'blur(16px)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: hoveredTile === 'deadline' ? `2px solid ${type.color}` : isOverdue ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--glass-border)',
+                                            textAlign: 'center',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            cursor: 'default',
+                                            transition: 'all 0.3s ease',
+                                            transform: hoveredTile === 'deadline' ? 'translateY(-4px)' : 'translateY(0)',
+                                            boxShadow: hoveredTile === 'deadline' ? `var(--shadow-md), 0 0 30px ${type.color}20` : 'none'
+                                        }}
+                                    >
+                                        <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', borderRadius: '4px 0 0 4px', background: hoveredTile === 'deadline' ? type.gradient : 'transparent', boxShadow: hoveredTile === 'deadline' ? `0 0 15px ${type.color}50` : 'none', transition: 'all 0.3s ease' }} />
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: hoveredTile === 'deadline' ? '60%' : '0%', transition: 'height 1.8s cubic-bezier(0.33, 1, 0.68, 1)', overflow: 'hidden', zIndex: 0 }}>
+                                            <Wave fill={waveColors.back} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '140%', transform: 'skewX(-3deg)' }} options={{ height: 25, amplitude: 12, speed: 0.05, points: 3 }} />
+                                            <Wave fill={waveColors.middle} paused={false} style={{ position: 'absolute', bottom: 0, left: '0', width: '100%', height: '115%' }} options={{ height: 20, amplitude: 18, speed: 0.1, points: 4 }} />
+                                            <Wave fill={waveColors.front} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '95%', transform: 'skewX(3deg)' }} options={{ height: 18, amplitude: 20, speed: 0.15, points: 6 }} />
+                                        </div>
+                                        <div style={{ position: 'relative', zIndex: 1 }}>
+                                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{isOverdue ? '⚠️' : '📅'}</div>
+                                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: isOverdue ? 'var(--error)' : 'var(--text-muted)', marginBottom: '4px' }}>{isOverdue ? 'Overdue' : 'Deadline'}</div>
+                                            <div style={{ fontWeight: 600, color: isOverdue ? 'var(--error)' : 'var(--text-primary)' }}>{new Date(quest.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{new Date(quest.deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+                                        </div>
                                     </div>
-                                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{complexity.icon}</div>
-                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Difficulty</div>
-                                        <div style={{ fontWeight: 600, color: complexity.color }}>{complexity.label}</div>
+
+                                    {/* Difficulty Tile */}
+                                    <div
+                                        onMouseEnter={() => setHoveredTile('difficulty')}
+                                        onMouseLeave={() => setHoveredTile(null)}
+                                        style={{
+                                            padding: '20px',
+                                            background: 'var(--glass-bg)',
+                                            backdropFilter: 'blur(16px)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: hoveredTile === 'difficulty' ? `2px solid ${type.color}` : '1px solid var(--glass-border)',
+                                            textAlign: 'center',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            cursor: 'default',
+                                            transition: 'all 0.3s ease',
+                                            transform: hoveredTile === 'difficulty' ? 'translateY(-4px)' : 'translateY(0)',
+                                            boxShadow: hoveredTile === 'difficulty' ? `var(--shadow-md), 0 0 30px ${type.color}20` : 'none'
+                                        }}
+                                    >
+                                        <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', borderRadius: '4px 0 0 4px', background: hoveredTile === 'difficulty' ? type.gradient : 'transparent', boxShadow: hoveredTile === 'difficulty' ? `0 0 15px ${type.color}50` : 'none', transition: 'all 0.3s ease' }} />
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: hoveredTile === 'difficulty' ? '60%' : '0%', transition: 'height 1.8s cubic-bezier(0.33, 1, 0.68, 1)', overflow: 'hidden', zIndex: 0 }}>
+                                            <Wave fill={waveColors.back} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '140%', transform: 'skewX(-3deg)' }} options={{ height: 25, amplitude: 12, speed: 0.05, points: 3 }} />
+                                            <Wave fill={waveColors.middle} paused={false} style={{ position: 'absolute', bottom: 0, left: '0', width: '100%', height: '115%' }} options={{ height: 20, amplitude: 18, speed: 0.1, points: 4 }} />
+                                            <Wave fill={waveColors.front} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '95%', transform: 'skewX(3deg)' }} options={{ height: 18, amplitude: 20, speed: 0.15, points: 6 }} />
+                                        </div>
+                                        <div style={{ position: 'relative', zIndex: 1 }}>
+                                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{complexity.icon}</div>
+                                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Difficulty</div>
+                                            <div style={{ fontWeight: 600, color: complexity.color }}>{complexity.label}</div>
+                                        </div>
                                     </div>
-                                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⚡</div>
-                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Reward</div>
-                                        <div style={{ fontWeight: 700, background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{quest.xpReward} XP</div>
+
+                                    {/* Reward Tile */}
+                                    <div
+                                        onMouseEnter={() => setHoveredTile('reward')}
+                                        onMouseLeave={() => setHoveredTile(null)}
+                                        style={{
+                                            padding: '20px',
+                                            background: 'var(--glass-bg)',
+                                            backdropFilter: 'blur(16px)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: hoveredTile === 'reward' ? `2px solid ${type.color}` : '1px solid var(--glass-border)',
+                                            textAlign: 'center',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            cursor: 'default',
+                                            transition: 'all 0.3s ease',
+                                            transform: hoveredTile === 'reward' ? 'translateY(-4px)' : 'translateY(0)',
+                                            boxShadow: hoveredTile === 'reward' ? `var(--shadow-md), 0 0 30px ${type.color}20` : 'none'
+                                        }}
+                                    >
+                                        <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', borderRadius: '4px 0 0 4px', background: hoveredTile === 'reward' ? type.gradient : 'transparent', boxShadow: hoveredTile === 'reward' ? `0 0 15px ${type.color}50` : 'none', transition: 'all 0.3s ease' }} />
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: hoveredTile === 'reward' ? '60%' : '0%', transition: 'height 1.8s cubic-bezier(0.33, 1, 0.68, 1)', overflow: 'hidden', zIndex: 0 }}>
+                                            <Wave fill={waveColors.back} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '140%', transform: 'skewX(-3deg)' }} options={{ height: 25, amplitude: 12, speed: 0.05, points: 3 }} />
+                                            <Wave fill={waveColors.middle} paused={false} style={{ position: 'absolute', bottom: 0, left: '0', width: '100%', height: '115%' }} options={{ height: 20, amplitude: 18, speed: 0.1, points: 4 }} />
+                                            <Wave fill={waveColors.front} paused={false} style={{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: '95%', transform: 'skewX(3deg)' }} options={{ height: 18, amplitude: 20, speed: 0.15, points: 6 }} />
+                                        </div>
+                                        <div style={{ position: 'relative', zIndex: 1 }}>
+                                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⚡</div>
+                                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Reward</div>
+                                            <div style={{ fontWeight: 700, background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{quest.xpReward} XP</div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Timer Bar - Compact inline design */}
                                 {quest.timer?.enabled && (
-                                    <div style={{
-                                        marginBottom: '24px',
-                                        padding: '16px 24px',
-                                        background: timerRunning
-                                            ? 'linear-gradient(90deg, rgba(0, 255, 204, 0.15), rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.15))'
-                                            : 'rgba(255, 255, 255, 0.03)',
-                                        borderRadius: 'var(--radius-full)',
-                                        border: timerRunning
-                                            ? '1px solid rgba(0, 255, 204, 0.4)'
-                                            : '1px solid var(--glass-border)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: '20px',
-                                        boxShadow: timerRunning ? '0 0 25px rgba(0, 255, 204, 0.2)' : 'none',
-                                        transition: 'all 0.3s ease'
-                                    }}>
+                                    <div
+                                        onMouseEnter={() => setHoveredBlock('timer-task')}
+                                        onMouseLeave={() => setHoveredBlock(null)}
+                                        style={{
+                                            marginBottom: '24px',
+                                            padding: '16px 24px',
+                                            background: timerRunning
+                                                ? 'linear-gradient(90deg, rgba(0, 255, 204, 0.15), rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.15))'
+                                                : 'rgba(255, 255, 255, 0.03)',
+                                            borderRadius: 'var(--radius-full)',
+                                            border: hoveredBlock === 'timer-task'
+                                                ? `2px solid ${type.color}`
+                                                : timerRunning
+                                                    ? '1px solid rgba(0, 255, 204, 0.4)'
+                                                    : '1px solid var(--glass-border)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: '20px',
+                                            boxShadow: hoveredBlock === 'timer-task'
+                                                ? `0 8px 30px ${type.color}20`
+                                                : timerRunning
+                                                    ? '0 0 25px rgba(0, 255, 204, 0.2)'
+                                                    : 'none',
+                                            transition: 'all 0.3s ease',
+                                            transform: hoveredBlock === 'timer-task' ? 'translateY(-2px)' : 'translateY(0)',
+                                            cursor: 'default'
+                                        }}>
                                         {/* Left: Timer Display */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                             {/* Circular indicator */}
@@ -1495,13 +1682,44 @@ function QuestDetail() {
                                 )}
 
                                 {quest.llmAnalysis?.reasoning && (
-                                    <div style={{ padding: '16px 20px', background: 'rgba(139, 92, 246, 0.08)', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '24px' }}>
+                                    <div
+                                        onMouseEnter={() => setHoveredBlock('ai-task')}
+                                        onMouseLeave={() => setHoveredBlock(null)}
+                                        style={{
+                                            padding: '16px 20px',
+                                            background: 'rgba(139, 92, 246, 0.08)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: hoveredBlock === 'ai-task' ? `2px solid ${type.color}` : '1px solid rgba(139, 92, 246, 0.2)',
+                                            display: 'flex',
+                                            gap: '14px',
+                                            alignItems: 'flex-start',
+                                            marginBottom: '24px',
+                                            transition: 'all 0.3s ease',
+                                            transform: hoveredBlock === 'ai-task' ? 'translateY(-2px)' : 'translateY(0)',
+                                            boxShadow: hoveredBlock === 'ai-task' ? `0 8px 25px ${type.color}15` : 'none',
+                                            cursor: 'default'
+                                        }}
+                                    >
                                         <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, var(--aurora-purple), var(--aurora-pink))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', flexShrink: 0 }}>🤖</div>
                                         <div><div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--aurora-purple)' }}>AI Analysis</div><p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{quest.llmAnalysis.reasoning}</p></div>
                                     </div>
                                 )}
                                 {isDsaQuest && quest.dsa && (
-                                    <div style={{ padding: '20px', background: 'rgba(139, 92, 246, 0.05)', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(139, 92, 246, 0.15)', marginBottom: '24px' }}>
+                                    <div
+                                        onMouseEnter={() => setHoveredBlock('dsa-details')}
+                                        onMouseLeave={() => setHoveredBlock(null)}
+                                        style={{
+                                            padding: '20px',
+                                            background: 'rgba(139, 92, 246, 0.05)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: hoveredBlock === 'dsa-details' ? `2px solid ${type.color}` : '1px solid rgba(139, 92, 246, 0.15)',
+                                            marginBottom: '24px',
+                                            transition: 'all 0.3s ease',
+                                            transform: hoveredBlock === 'dsa-details' ? 'translateY(-2px)' : 'translateY(0)',
+                                            boxShadow: hoveredBlock === 'dsa-details' ? `0 8px 25px ${type.color}15` : 'none',
+                                            cursor: 'default'
+                                        }}
+                                    >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                                             <span style={{ fontSize: '1.25rem' }}>💻</span>
                                             <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>Problem Details</span>
@@ -1521,8 +1739,60 @@ function QuestDetail() {
                                 <div style={{ flex: 1 }}></div>
                                 {quest.status === 'active' && (
                                     <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                                        <button onClick={handleDelete} style={{ padding: '14px 24px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-md)', color: 'var(--error)', cursor: 'pointer', fontSize: '1rem', fontWeight: 600 }}>🗑️ Abandon</button>
-                                        <button onClick={handleComplete} disabled={completing} style={{ padding: '14px 48px', background: 'linear-gradient(135deg, var(--success), #34d399)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontWeight: 700, fontSize: '1.1rem', cursor: completing ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)' }}>
+                                        <button
+                                            onClick={handleDelete}
+                                            style={{
+                                                padding: '14px 24px',
+                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                borderRadius: 'var(--radius-md)',
+                                                color: 'var(--error)',
+                                                cursor: 'pointer',
+                                                fontSize: '1rem',
+                                                fontWeight: 600,
+                                                transition: 'all 0.3s ease'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.border = '2px solid var(--error)';
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = '0 8px 25px rgba(239, 68, 68, 0.2)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = 'none';
+                                            }}
+                                        >🗑️ Abandon</button>
+                                        <button
+                                            onClick={handleComplete}
+                                            disabled={completing}
+                                            style={{
+                                                padding: '14px 48px',
+                                                background: 'linear-gradient(135deg, var(--success), #34d399)',
+                                                border: '2px solid transparent',
+                                                borderRadius: 'var(--radius-md)',
+                                                color: 'white',
+                                                fontWeight: 700,
+                                                fontSize: '1.1rem',
+                                                cursor: completing ? 'wait' : 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '10px',
+                                                boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)',
+                                                transition: 'all 0.3s ease'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = '0 8px 35px rgba(16, 185, 129, 0.5)';
+                                                e.currentTarget.style.border = '2px solid rgba(255, 255, 255, 0.3)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = '0 4px 20px rgba(16, 185, 129, 0.3)';
+                                                e.currentTarget.style.border = '2px solid transparent';
+                                            }}
+                                        >
                                             {completing ? <><div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }}></div> Completing...</> : <>✨ Complete Quest (+{quest.xpReward} XP)</>}
                                         </button>
                                     </div>

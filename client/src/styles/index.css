@@ -31,10 +31,10 @@
   --aurora-green-glow: rgba(16, 185, 129, 0.3);
 
   /* Quest Type Colors */
-  --quest-youtube: #ff7b54;
-  --quest-youtube-glow: rgba(244, 63, 94, 0.3);
-  --quest-dsa: #8b5cf6;
-  --quest-dsa-glow: rgba(139, 92, 246, 0.3);
+  --quest-youtube: #0ea5e9;
+  --quest-youtube-glow: rgba(14, 165, 233, 0.3);
+  --quest-dsa: #818cf8;
+  --quest-dsa-glow: rgba(129, 140, 248, 0.3);
   --quest-task: #3b82f6;
   --quest-task-glow: rgba(59, 130, 246, 0.3);
 
@@ -199,6 +199,19 @@ a:hover {
   text-shadow: 0 0 20px var(--aurora-purple-glow);
 }
 
+/* Global Button Hover Effects */
+button {
+  transition: all 0.3s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 /* ============================================
    Typography
    ============================================ */
@@ -328,9 +341,33 @@ h4 {
 
 .card:hover {
   background: var(--glass-bg-hover);
-  border-color: var(--glass-border-hover);
+  border: 2px solid var(--aurora-teal);
   transform: translateY(-4px);
-  box-shadow: var(--shadow-md), 0 0 40px rgba(0, 255, 204, 0.05);
+  box-shadow: var(--shadow-md), 0 0 40px rgba(0, 255, 204, 0.15);
+}
+
+/* Interactive block hover effects - use on any container that should have hover feedback */
+.block-interactive {
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.block-interactive:hover {
+  border: 2px solid var(--aurora-teal) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 255, 204, 0.15);
+}
+
+/* Purple variant for DSA/purple themed blocks */
+.block-interactive-purple:hover {
+  border: 2px solid var(--aurora-purple) !important;
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.15);
+}
+
+/* Blue variant for task themed blocks */
+.block-interactive-blue:hover {
+  border: 2px solid var(--quest-task) !important;
+  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.15);
 }
 
 .card-glow-teal {
@@ -362,12 +399,12 @@ h4 {
 }
 
 .quest-card[data-type="youtube"]::after {
-  background: linear-gradient(180deg, var(--quest-youtube) 0%, #fb7185 100%);
+  background: linear-gradient(180deg, var(--quest-youtube) 0%, #38bdf8 100%);
   box-shadow: 0 0 20px var(--quest-youtube-glow);
 }
 
 .quest-card[data-type="dsa"]::after {
-  background: linear-gradient(180deg, var(--quest-dsa) 0%, #a78bfa 100%);
+  background: linear-gradient(180deg, var(--quest-dsa) 0%, #a5b4fc 100%);
   box-shadow: 0 0 20px var(--quest-dsa-glow);
 }
 
@@ -461,15 +498,15 @@ h4 {
 }
 
 .badge-youtube {
-  background: rgba(244, 63, 94, 0.15);
+  background: rgba(14, 165, 233, 0.15);
   color: var(--quest-youtube);
-  border-color: rgba(244, 63, 94, 0.3);
+  border-color: rgba(14, 165, 233, 0.3);
 }
 
 .badge-dsa {
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(129, 140, 248, 0.15);
   color: var(--quest-dsa);
-  border-color: rgba(139, 92, 246, 0.3);
+  border-color: rgba(129, 140, 248, 0.3);
 }
 
 .badge-task {
@@ -694,9 +731,9 @@ h4 {
 
 .stat-item:hover {
   background: rgba(255, 255, 255, 0.06);
-  border-color: var(--aurora-teal);
+  border: 2px solid var(--aurora-teal);
   transform: translateY(-2px);
-  box-shadow: 0 0 20px var(--aurora-teal-glow);
+  box-shadow: 0 0 30px var(--aurora-teal-glow);
 }
 
 .stat-value {
@@ -795,15 +832,13 @@ h4 {
 
 .btn-secondary {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--glass-border);
+  border: none;
   color: var(--text-primary);
   backdrop-filter: blur(10px);
 }
 
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: var(--aurora-teal);
-  box-shadow: 0 0 20px var(--aurora-teal-glow);
 }
 
 .btn-danger {

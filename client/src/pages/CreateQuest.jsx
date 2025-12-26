@@ -105,8 +105,8 @@ function CreateQuest() {
 
     const questTypes = [
         { value: 'task', icon: '📋', label: 'Task', desc: 'General todos', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' },
-        { value: 'youtube', icon: '📺', label: 'YouTube', desc: 'Video tutorials', color: '#ff7b54', bg: 'rgba(255, 123, 84, 0.15)' },
-        { value: 'dsa', icon: '💻', label: 'DSA', desc: 'Coding problems', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)' }
+        { value: 'youtube', icon: '📺', label: 'YouTube', desc: 'Video tutorials', color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.15)' },
+        { value: 'dsa', icon: '💻', label: 'DSA', desc: 'Coding problems', color: '#818cf8', bg: 'rgba(129, 140, 248, 0.15)' }
     ];
 
     const selectedType = questTypes.find(t => t.value === formData.type);
@@ -292,9 +292,9 @@ function CreateQuest() {
                         {formData.type === 'youtube' && (
                             <div style={{
                                 padding: '14px',
-                                background: 'rgba(255, 123, 84, 0.08)',
+                                background: 'rgba(14, 165, 233, 0.08)',
                                 borderRadius: 'var(--radius-md)',
-                                border: '1px solid rgba(255, 123, 84, 0.2)'
+                                border: '1px solid rgba(14, 165, 233, 0.2)'
                             }}>
                                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--quest-youtube)' }}>
                                     📺 Video URL <span style={{ color: 'var(--error)' }}>*</span>
@@ -315,9 +315,9 @@ function CreateQuest() {
                         {formData.type === 'dsa' && (
                             <div style={{
                                 padding: '14px',
-                                background: 'rgba(139, 92, 246, 0.08)',
+                                background: 'rgba(129, 140, 248, 0.08)',
                                 borderRadius: 'var(--radius-md)',
-                                border: '1px solid rgba(139, 92, 246, 0.2)',
+                                border: '1px solid rgba(129, 140, 248, 0.2)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '12px'
