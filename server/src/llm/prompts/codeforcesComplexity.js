@@ -43,11 +43,18 @@ XP Assignment (based on complexity):
 - Hard: 200-400 XP
 - Epic: 400-600 XP
 
+REASONING FORMAT (CRITICAL - FOLLOW EXACTLY):
+- Write a SHORT, friendly assessment (1 sentence)
+- Sound natural, like a helpful AI mentor
+- Examples: "A solid medium-level challenge!" or "This one's on the easier side, great for practice!" or "Quite challenging - prepare for a workout!"
+- DO NOT mention ANYTHING about the problem content, algorithms, or approach
+- Just convey the difficulty vibe without spoilers
+
 Respond in JSON format:
 {
   "complexity": "easy|medium|hard|epic",
   "xpReward": <number between 50 and 600>,
   "difficultyRating": <number 0-10, e.g. 8.2>,
-  "reasoning": "Brief analysis"
+  "reasoning": "<short friendly assessment, no spoilers>"
 }`;
 }

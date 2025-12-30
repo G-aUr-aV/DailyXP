@@ -330,7 +330,7 @@ router.post('/', async (req, res, next) => {
 
                         // Add description from platform if available
                         if (problemDetails.description && !description) {
-                            questData.description = problemDetails.description.slice(0, 500);
+                            questData.description = problemDetails.description.slice(0, 5000);
                         }
 
                         // Store fetched platform title for LLM analysis
@@ -488,10 +488,7 @@ router.post('/:id/retry-analysis', async (req, res, next) => {
             return res.status(404).json({ error: 'Quest not found' });
         }
 
-        // Only allow retry if analysis is pending or failed
-        if (quest.analysisStatus === 'completed') {
-            return res.status(400).json({ error: 'Analysis already completed' });
-        }
+        // Allow re-analysis anytime (no status check)
 
         // Reset to pending and trigger analysis
         quest.analysisStatus = 'pending';

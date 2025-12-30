@@ -199,16 +199,21 @@ function QuestDetail() {
         }
     };
 
-    // Retry analysis handler
+    // Retry analysis handler with confirmation
     const handleRetryAnalysis = async () => {
+        const confirmed = window.confirm('🤖 Re-run AI Analysis?\n\nThis will recalculate the quest complexity and XP reward based on the current LLM.');
+        if (!confirmed) return;
+
         try {
-            setToast({ type: 'info', message: '🔄 Retrying analysis...' });
+            setToast({ type: 'info', message: '🔄 Running AI analysis...' });
             await questAPI.retryAnalysis(id);
             setToast({ type: 'success', message: '✨ Analysis started! It may take a few seconds.' });
+            setTimeout(() => setToast(null), 3000);
             // Fetch immediately then let the polling take over
             await fetchQuest(true);
         } catch (err) {
             setToast({ type: 'error', message: `Failed to retry analysis: ${err.message}` });
+            setTimeout(() => setToast(null), 3000);
         }
     };
 
@@ -748,29 +753,115 @@ function QuestDetail() {
                                 </div>
                             </div>
 
-                            {/* AI Analysis */}
-                            {quest.llmAnalysis?.reasoning && (
-                                <div
-                                    onMouseEnter={() => setHoveredBlock('ai-youtube')}
-                                    onMouseLeave={() => setHoveredBlock(null)}
-                                    style={{
-                                        padding: '12px',
-                                        background: 'rgba(139, 92, 246, 0.08)',
-                                        borderRadius: 'var(--radius-md)',
-                                        border: hoveredBlock === 'ai-youtube' ? `2px solid ${type.color}` : '1px solid rgba(139, 92, 246, 0.2)',
-                                        display: 'flex',
-                                        gap: '10px',
-                                        alignItems: 'flex-start',
-                                        transition: 'all 0.3s ease',
-                                        transform: hoveredBlock === 'ai-youtube' ? 'translateY(-2px)' : 'translateY(0)',
-                                        boxShadow: hoveredBlock === 'ai-youtube' ? `0 8px 25px ${type.color}15` : 'none',
-                                        cursor: 'default'
-                                    }}
-                                >
-                                    <span style={{ fontSize: '1rem' }}>🤖</span>
-                                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{quest.llmAnalysis.reasoning}</p>
+
+                            {/* AI Analysis Block - with integrated re-analyze button */}
+                            <div
+                                onMouseEnter={() => setHoveredBlock('ai-youtube')}
+                                onMouseLeave={() => setHoveredBlock(null)}
+                                style={{
+                                    padding: '12px',
+                                    background: quest.analysisStatus === 'failed' ? 'rgba(239, 68, 68, 0.08)'
+                                        : quest.analysisStatus === 'pending' ? 'rgba(139, 92, 246, 0.08)'
+                                            : 'rgba(139, 92, 246, 0.08)',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: quest.analysisStatus === 'failed' ? '1px solid rgba(239, 68, 68, 0.3)'
+                                        : hoveredBlock === 'ai-youtube' ? `2px solid ${type.color}`
+                                            : '1px solid rgba(139, 92, 246, 0.2)',
+                                    transition: 'all 0.3s ease',
+                                    transform: hoveredBlock === 'ai-youtube' ? 'translateY(-2px)' : 'translateY(0)',
+                                    boxShadow: hoveredBlock === 'ai-youtube' ? `0 8px 25px ${type.color}15` : 'none',
+                                    cursor: 'default'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flex: 1 }}>
+                                        {quest.analysisStatus === 'pending' ? (
+                                            <div style={{
+                                                width: '14px',
+                                                height: '14px',
+                                                borderRadius: '50%',
+                                                border: '2px solid var(--aurora-purple)',
+                                                borderTopColor: 'transparent',
+                                                animation: 'spin 1s linear infinite',
+                                                marginTop: '3px',
+                                                flexShrink: 0
+                                            }} />
+                                        ) : quest.analysisStatus === 'failed' ? (
+                                            <span style={{ fontSize: '1rem' }}>⚠️</span>
+                                        ) : (
+                                            <span style={{ fontSize: '1rem' }}>🤖</span>
+                                        )}
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 600, marginBottom: '4px', color: quest.analysisStatus === 'failed' ? 'var(--error)' : 'var(--aurora-purple)', fontSize: '0.85rem' }}>
+                                                {quest.analysisStatus === 'pending' ? 'AI Analysis in progress...'
+                                                    : quest.analysisStatus === 'failed' ? 'AI Analysis failed'
+                                                        : 'AI Analysis'}
+                                            </div>
+                                            {quest.llmAnalysis?.reasoning && quest.analysisStatus !== 'pending' && (
+                                                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                                    {quest.llmAnalysis.reasoning}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                                        <button
+                                            onClick={handleRetryAnalysis}
+                                            style={{
+                                                padding: '6px',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--aurora-purple)',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                opacity: 0.6,
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.opacity = '1';
+                                                e.currentTarget.style.transform = 'scale(1.15)';
+                                                e.currentTarget.nextSibling.style.opacity = '1';
+                                                e.currentTarget.nextSibling.style.visibility = 'visible';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.opacity = '0.6';
+                                                e.currentTarget.style.transform = 'scale(1)';
+                                                e.currentTarget.nextSibling.style.opacity = '0';
+                                                e.currentTarget.nextSibling.style.visibility = 'hidden';
+                                            }}
+                                        >
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                                <path d="M3 3v5h5" />
+                                                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                                                <path d="M16 21h5v-5" />
+                                            </svg>
+                                        </button>
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '100%',
+                                            right: 0,
+                                            marginBottom: '8px',
+                                            padding: '8px 12px',
+                                            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(168, 85, 247, 0.95))',
+                                            borderRadius: 'var(--radius-sm)',
+                                            color: 'white',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            whiteSpace: 'nowrap',
+                                            opacity: 0,
+                                            visibility: 'hidden',
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                                            pointerEvents: 'none'
+                                        }}>
+                                            ✨ Regenerate AI Analysis
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
+                            </div>
 
                             {/* Timer Bar for YouTube Quest */}
                             {quest.timer?.enabled && (
@@ -1847,73 +1938,130 @@ function QuestDetail() {
                                     </div>
                                 )}
 
-                                {quest.analysisStatus === 'pending' && (
-                                    <div style={{
-                                        padding: '16px 20px',
-                                        background: 'rgba(139, 92, 246, 0.05)',
-                                        borderRadius: 'var(--radius-lg)',
-                                        border: '1px dashed rgba(139, 92, 246, 0.3)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: '12px',
-                                        marginBottom: '24px'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{
-                                                width: '16px',
-                                                height: '16px',
-                                                borderRadius: '50%',
-                                                border: '2px solid var(--aurora-purple)',
-                                                borderTopColor: 'transparent',
-                                                animation: 'spin 1s linear infinite'
-                                            }} />
-                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                                AI Analysis in progress... The difficulty and XP reward will be updated shortly.
-                                            </span>
-                                        </div>
-                                        <button
-                                            onClick={handleRetryAnalysis}
-                                            style={{
-                                                padding: '8px 16px',
-                                                background: 'rgba(139, 92, 246, 0.2)',
-                                                border: '1px solid rgba(139, 92, 246, 0.4)',
-                                                borderRadius: 'var(--radius-md)',
-                                                color: 'var(--aurora-purple)',
-                                                cursor: 'pointer',
-                                                fontSize: '0.85rem',
-                                                fontWeight: 600,
-                                                whiteSpace: 'nowrap'
-                                            }}
-                                        >
-                                            🔄 Retry
-                                        </button>
-                                    </div>
-                                )}
 
-                                {quest.llmAnalysis?.reasoning && quest.analysisStatus !== 'pending' && (
-                                    <div
-                                        onMouseEnter={() => setHoveredBlock('ai-task')}
-                                        onMouseLeave={() => setHoveredBlock(null)}
-                                        style={{
-                                            padding: '16px 20px',
-                                            background: 'rgba(139, 92, 246, 0.08)',
-                                            borderRadius: 'var(--radius-lg)',
-                                            border: hoveredBlock === 'ai-task' ? `2px solid ${type.color}` : '1px solid rgba(139, 92, 246, 0.2)',
-                                            display: 'flex',
-                                            gap: '14px',
-                                            alignItems: 'flex-start',
-                                            marginBottom: '24px',
-                                            transition: 'all 0.3s ease',
-                                            transform: hoveredBlock === 'ai-task' ? 'translateY(-2px)' : 'translateY(0)',
-                                            boxShadow: hoveredBlock === 'ai-task' ? `0 8px 25px ${type.color}15` : 'none',
-                                            cursor: 'default'
-                                        }}
-                                    >
-                                        <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, var(--aurora-purple), var(--aurora-pink))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', flexShrink: 0 }}>🤖</div>
-                                        <div><div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--aurora-purple)' }}>AI Analysis</div><p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{quest.llmAnalysis.reasoning}</p></div>
+
+                                {/* AI Analysis Block - with integrated re-analyze button */}
+                                <div
+                                    onMouseEnter={() => setHoveredBlock('ai-task')}
+                                    onMouseLeave={() => setHoveredBlock(null)}
+                                    style={{
+                                        padding: '16px 20px',
+                                        background: quest.analysisStatus === 'failed' ? 'rgba(239, 68, 68, 0.08)'
+                                            : 'rgba(139, 92, 246, 0.08)',
+                                        borderRadius: 'var(--radius-lg)',
+                                        border: quest.analysisStatus === 'failed' ? '1px solid rgba(239, 68, 68, 0.3)'
+                                            : hoveredBlock === 'ai-task' ? `2px solid ${type.color}`
+                                                : '1px solid rgba(139, 92, 246, 0.2)',
+                                        marginBottom: '24px',
+                                        transition: 'all 0.3s ease',
+                                        transform: hoveredBlock === 'ai-task' ? 'translateY(-2px)' : 'translateY(0)',
+                                        boxShadow: hoveredBlock === 'ai-task' ? `0 8px 25px ${type.color}15` : 'none',
+                                        cursor: 'default'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px' }}>
+                                        <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flex: 1 }}>
+                                            {quest.analysisStatus === 'pending' ? (
+                                                <div style={{
+                                                    width: '40px',
+                                                    height: '40px',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    background: 'linear-gradient(135deg, var(--aurora-purple), var(--aurora-pink))',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <div style={{
+                                                        width: '18px',
+                                                        height: '18px',
+                                                        borderRadius: '50%',
+                                                        border: '2px solid white',
+                                                        borderTopColor: 'transparent',
+                                                        animation: 'spin 1s linear infinite'
+                                                    }} />
+                                                </div>
+                                            ) : quest.analysisStatus === 'failed' ? (
+                                                <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: 'rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', flexShrink: 0 }}>⚠️</div>
+                                            ) : (
+                                                <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, var(--aurora-purple), var(--aurora-pink))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', flexShrink: 0 }}>🤖</div>
+                                            )}
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 600, marginBottom: '4px', color: quest.analysisStatus === 'failed' ? 'var(--error)' : 'var(--aurora-purple)' }}>
+                                                    {quest.analysisStatus === 'pending' ? 'AI Analysis in progress...'
+                                                        : quest.analysisStatus === 'failed' ? 'AI Analysis failed'
+                                                            : 'AI Analysis'}
+                                                </div>
+                                                {quest.llmAnalysis?.reasoning && quest.analysisStatus !== 'pending' && (
+                                                    <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                                        {quest.llmAnalysis.reasoning}
+                                                    </p>
+                                                )}
+                                                {quest.analysisStatus === 'pending' && (
+                                                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                                        The difficulty and XP reward will be updated shortly.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                                            <button
+                                                onClick={handleRetryAnalysis}
+                                                style={{
+                                                    padding: '6px',
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    color: 'var(--aurora-purple)',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    opacity: 0.6,
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.opacity = '1';
+                                                    e.currentTarget.style.transform = 'scale(1.15)';
+                                                    e.currentTarget.nextSibling.style.opacity = '1';
+                                                    e.currentTarget.nextSibling.style.visibility = 'visible';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.opacity = '0.6';
+                                                    e.currentTarget.style.transform = 'scale(1)';
+                                                    e.currentTarget.nextSibling.style.opacity = '0';
+                                                    e.currentTarget.nextSibling.style.visibility = 'hidden';
+                                                }}
+                                            >
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                                    <path d="M3 3v5h5" />
+                                                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                                                    <path d="M16 21h5v-5" />
+                                                </svg>
+                                            </button>
+                                            <div style={{
+                                                position: 'absolute',
+                                                bottom: '100%',
+                                                right: 0,
+                                                marginBottom: '8px',
+                                                padding: '8px 12px',
+                                                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(168, 85, 247, 0.95))',
+                                                borderRadius: 'var(--radius-sm)',
+                                                color: 'white',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                whiteSpace: 'nowrap',
+                                                opacity: 0,
+                                                visibility: 'hidden',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                                                pointerEvents: 'none'
+                                            }}>
+                                                ✨ Regenerate AI Analysis
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
+                                </div>
                                 {isDsaQuest && quest.dsa && (
                                     <div
                                         onMouseEnter={() => setHoveredBlock('dsa-details')}

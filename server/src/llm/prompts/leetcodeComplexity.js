@@ -36,11 +36,18 @@ Assign 'difficultyRating' based on this unified scale relative to global coding 
 - 7.1-9.0 (Expert): Segment Trees, Flow, Complex Math (e.g. CF 2000+)
 - 9.1-10.0 (Grandmaster): Research/World Finals level (e.g. CF 2600+)
 
+REASONING FORMAT (CRITICAL - FOLLOW EXACTLY):
+- Write a SHORT, friendly assessment (1 sentence)
+- Sound natural, like a helpful AI mentor
+- Examples: "A solid medium-level challenge!" or "This one's on the easier side, great for practice!" or "Quite challenging - prepare for a workout!"
+- DO NOT mention ANYTHING about the problem content, algorithms, or approach
+- Just convey the difficulty vibe without spoilers
+
 Respond in JSON format:
 {
   "complexity": "easy|medium|hard",
   "xpReward": <number between 50 and 600>,
   "difficultyRating": <number 0-10, e.g. 7.5>,
-  "reasoning": "Brief complexity analysis"
+  "reasoning": "<short friendly assessment, no spoilers>"
 }`;
 }
