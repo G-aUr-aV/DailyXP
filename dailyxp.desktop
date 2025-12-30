@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=DailyXP
+Comment=Gamified daily task tracker for YouTube tutorials, DSA problems, and daily tasks
+Path=/home/gauravupreti/Personal Projects/DailyXP
+Exec=gnome-terminal -- bash -c "(sleep 3 && xdg-open http://dailyxp.com:5173) & npm run dev; exec bash"
+Icon=/home/gauravupreti/Personal Projects/DailyXP/client/public/vite.svg
+Terminal=false
+Type=Application
+Categories=Development;Productivity;
+StartupNotify=true
