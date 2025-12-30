@@ -1,29 +1,45 @@
 /**
- * DSA Problem Complexity Analysis Prompt
+ * Generic DSA Problem Complexity Analysis Prompt
+ * For platforms other than LeetCode, Codeforces, CSES
  */
 
 export function getDSAComplexityPrompt(quest) {
-  const daysRemaining = quest.deadline
-    ? Math.ceil((new Date(quest.deadline) - new Date()) / (1000 * 60 * 60 * 24))
-    : null;
+  const dsa = quest.dsa || {};
 
-  return `Analyze the complexity of this DSA problem:
-Title: ${quest.title}
-Platform: ${quest.dsa?.platform || 'Unknown'}
-${quest.dsa?.difficulty ? `Listed Difficulty: ${quest.dsa.difficulty}` : ''}
-${quest.dsa?.topics ? `Topics: ${quest.dsa.topics.join(', ')}` : ''}
-${quest.description ? `Description: ${quest.description}` : ''}
-${daysRemaining !== null ? `Time to complete: ${daysRemaining} days remaining` : ''}
+  return `Analyze the complexity of this DSA coding problem.
 
-Based on typical DSA problem difficulty AND time pressure, determine complexity:
-- Easy: Basic data structures, simple algorithms, ample time
-- Medium: Moderate algorithms, some optimization needed
-- Hard: Advanced algorithms, complex optimization, tight deadline
-- Epic: Competition-level, multiple advanced concepts, very tight deadline
+Problem Title: ${quest.title}
+Platform: ${dsa.platform || 'Unknown'}
+${dsa.difficulty ? `Listed Difficulty: ${dsa.difficulty} (use as hint, not absolute truth)` : ''}
+${dsa.topics && dsa.topics.length > 0 ? `Topics/Tags: ${dsa.topics.join(', ')}` : ''}
+${quest.description ? `Problem Description: ${quest.description}` : ''}
+
+ANALYSIS INSTRUCTIONS:
+1. Analyze the problem based on available information
+2. Use any listed difficulty as a reference, not definitive
+3. Consider the concepts required based on topics
+
+IMPORTANT RULES:
+- Only analyze complexity level - DO NOT reveal solution approaches
+- DO NOT mention specific algorithms or data structures to use
+- Focus purely on difficulty assessment
+
+UNIVERSAL DIFFICULTY RATING SCALE (0-10):
+Assign 'difficultyRating' based on this unified scale. ALL platforms must align to this:
+- 1.0-3.0 (Beginner): Basic array/string manipulation, simple logic.
+- 3.1-5.0 (Intermediate): HashMaps, sorting, 2-pointers, simple recursion.
+- 5.1-7.0 (Advanced): Trees, Graphs, DP, Backtracking, Tries.
+- 7.1-9.0 (Expert): Segment Trees, Network Flows, Advanced DP/Math.
+- 9.1-10.0 (Grandmaster): Competitive programming elite level (IOI/ICPC hard).
+
+XP Assignment (flexible values):
+- Easy: 50-100 XP | Medium: 100-200 XP | Hard: 200-400 XP | Epic: 400-600 XP
 
 Respond in JSON format:
 {
   "complexity": "easy|medium|hard|epic",
-  "reasoning": "Brief explanation (max 100 chars)"
+  "xpReward": <number between 50 and 600>,
+  "difficultyRating": <number 0-10, e.g. 5.5>,
+  "reasoning": "Brief analysis"
 }`;
 }

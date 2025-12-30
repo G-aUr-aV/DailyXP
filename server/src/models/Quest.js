@@ -66,6 +66,7 @@ const questSchema = new mongoose.Schema({
         platform: String,
         problemUrl: String,
         difficulty: String,
+        rating: Number,
         topics: [String],
         problemNumber: String
     },
@@ -74,6 +75,13 @@ const questSchema = new mongoose.Schema({
     llmAnalysis: {
         reasoning: String,
         analyzedAt: Date
+    },
+
+    // Status of the background analysis
+    analysisStatus: {
+        type: String,
+        enum: ['pending', 'completed', 'failed'],
+        default: 'pending'
     },
 
     // Timer feature - tracks work duration on tasks

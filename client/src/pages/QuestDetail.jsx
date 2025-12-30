@@ -31,6 +31,8 @@ function QuestDetail() {
     const [alarmRinging, setAlarmRinging] = useState(false);
     const [hoveredTile, setHoveredTile] = useState(null);
     const [hoveredBlock, setHoveredBlock] = useState(null);
+    const [showTopics, setShowTopics] = useState(false);
+    const [expandedDescription, setExpandedDescription] = useState(false);
     const alarmAudioRef = useRef(null);
 
     useEffect(() => { fetchQuest(); }, [id]);
@@ -170,9 +172,9 @@ function QuestDetail() {
         }
     };
 
-    const fetchQuest = async () => {
+    const fetchQuest = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const data = await questAPI.getById(id);
             setQuest(data);
             if (data.type === 'youtube') {
@@ -192,8 +194,34 @@ function QuestDetail() {
                 }
                 try { setProgressHistory(await videoProgressAPI.getHistory(id)); } catch (err) { console.error(err); }
             }
-        } catch (err) { setError(err.message); } finally { setLoading(false); }
+        } catch (err) { setError(err.message); } finally {
+            if (!silent) setLoading(false);
+        }
     };
+
+    // Retry analysis handler
+    const handleRetryAnalysis = async () => {
+        try {
+            setToast({ type: 'info', message: '🔄 Retrying analysis...' });
+            await questAPI.retryAnalysis(id);
+            setToast({ type: 'success', message: '✨ Analysis started! It may take a few seconds.' });
+            // Fetch immediately then let the polling take over
+            await fetchQuest(true);
+        } catch (err) {
+            setToast({ type: 'error', message: `Failed to retry analysis: ${err.message}` });
+        }
+    };
+
+    // Poll for pending analysis
+    useEffect(() => {
+        let interval;
+        if (quest?.analysisStatus === 'pending') {
+            interval = setInterval(() => fetchQuest(true), 3000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        }
+    }, [quest?.analysisStatus]);
 
     // Timer functions
     const startTimer = async () => {
@@ -937,7 +965,7 @@ function QuestDetail() {
 
                             {/* Watch History Card */}
                             {progressHistory.length > 0 && (
-                                <div style={{ background: 'var(--glass-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
+                                <div style={{ background: 'var(--glass-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--glass-border)', maxHeight: '220px', display: 'flex', flexDirection: 'column' }}>
                                     <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             📜 Watch History
@@ -956,7 +984,7 @@ function QuestDetail() {
                                             </span>
                                         )}
                                     </div>
-                                    <div style={{ maxHeight: showAllHistory ? '200px' : 'auto', overflowY: showAllHistory ? 'auto' : 'visible' }}>
+                                    <div style={{ flex: 1, overflowY: 'auto' }}>
                                         {historyToShow.map((entry, i) => {
                                             const percent = actualDuration ? Math.round((entry.currentTime / actualDuration) * 100) : 0;
                                             const sessionDuration = entry.metadata?.sessionDuration || 0;
@@ -1144,7 +1172,45 @@ function QuestDetail() {
                                             {getProgressPercent() >= 95 ? '✅ Ready to complete!' : `${100 - getProgressPercent()}% remaining`}
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div className="custom-tooltip-container">
+                                            <span style={{ color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                📅 {new Date(quest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
+                                            <div className="custom-tooltip">
+                                                <span className="tooltip-label">Created</span>
+                                                <span className="tooltip-date">
+                                                    {new Date(quest.createdAt).toLocaleDateString(undefined, {
+                                                        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                                                    })}
+                                                </span>
+                                                <span className="tooltip-time">
+                                                    {new Date(quest.createdAt).toLocaleTimeString(undefined, {
+                                                        hour: 'numeric', minute: '2-digit', second: '2-digit'
+                                                    })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="custom-tooltip-container">
+                                            <span style={{ color: isOverdue ? 'var(--error)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                ⏰ {new Date(quest.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
+                                            <div className="custom-tooltip" style={{ right: 0, left: 'auto' }}>
+                                                <span className="tooltip-label" style={{ color: isOverdue ? 'var(--error)' : 'var(--aurora-teal)' }}>
+                                                    {isOverdue ? 'Overdue' : 'Deadline'}
+                                                </span>
+                                                <span className="tooltip-date">
+                                                    {new Date(quest.deadline).toLocaleDateString(undefined, {
+                                                        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                                                    })}
+                                                </span>
+                                                <span className="tooltip-time">
+                                                    {new Date(quest.deadline).toLocaleTimeString(undefined, {
+                                                        hour: 'numeric', minute: '2-digit', second: '2-digit'
+                                                    })}
+                                                </span>
+                                            </div>
+                                        </div>
                                         {isPlaying && <span style={{ padding: '2px 8px', background: 'rgba(16, 185, 129, 0.2)', borderRadius: 'var(--radius-sm)', color: 'var(--success)', fontWeight: 600, fontSize: '0.7rem' }}>● LIVE</span>}
                                     </div>
                                 </div>
@@ -1162,7 +1228,70 @@ function QuestDetail() {
                                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                                     <div style={{ fontSize: '4rem', marginBottom: '16px', filter: 'drop-shadow(0 0 20px var(--aurora-teal))' }}>{type.icon}</div>
                                     <h1 style={{ fontSize: '2rem', margin: '0 0 12px 0', background: 'linear-gradient(135deg, var(--text-primary), var(--aurora-teal))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{quest.title}</h1>
-                                    {quest.description && <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', margin: '0 auto', maxWidth: '600px', lineHeight: 1.6 }}>{quest.description}</p>}
+                                    {quest.description && (
+                                        <div style={{
+                                            margin: '16px auto',
+                                            width: '100%',
+                                            maxWidth: '800px',
+                                            padding: '24px',
+                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--glass-border)',
+                                            borderLeft: `3px solid ${type.color}`,
+                                            textAlign: 'left'
+                                        }}>
+                                            <div style={{
+                                                color: 'var(--text-muted)',
+                                                fontSize: '0.75rem',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.05em',
+                                                marginBottom: '12px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '6px'
+                                            }}>
+                                                <span>📝 Problem Statement</span>
+                                                {quest.description.length > 300 && (
+                                                    <button
+                                                        onClick={() => setExpandedDescription(!expandedDescription)}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: type.color,
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: 600,
+                                                            padding: '4px 8px',
+                                                            borderRadius: '4px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.05)'}
+                                                        onMouseLeave={(e) => e.target.style.background = 'none'}
+                                                    >
+                                                        {expandedDescription ? 'Collapse' : 'Expand'}
+                                                        <span style={{ fontSize: '1rem' }}>{expandedDescription ? '🔼' : '🔽'}</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <p style={{
+                                                color: 'var(--text-secondary)',
+                                                fontSize: '1rem',
+                                                margin: 0,
+                                                lineHeight: 1.7,
+                                                whiteSpace: 'pre-wrap',
+                                                maxHeight: expandedDescription ? 'none' : '150px',
+                                                overflow: 'hidden',
+                                                position: 'relative',
+                                                maskImage: expandedDescription ? 'none' : 'linear-gradient(to bottom, black 60%, transparent 100%)',
+                                                WebkitMaskImage: expandedDescription ? 'none' : 'linear-gradient(to bottom, black 60%, transparent 100%)'
+                                            }}>
+                                                {quest.description}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '32px' }}>
                                     {/* Created Tile */}
@@ -1290,8 +1419,37 @@ function QuestDetail() {
                                         </div>
                                         <div style={{ position: 'relative', zIndex: 1 }}>
                                             <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{complexity.icon}</div>
-                                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Difficulty</div>
-                                            <div style={{ fontWeight: 600, color: complexity.color }}>{complexity.label}</div>
+                                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                                {quest.dsa?.platform === 'codeforces' && quest.dsa?.rating ? 'CF Rating' : 'Difficulty'}
+                                            </div>
+                                            <div style={{
+                                                fontWeight: 600, color:
+                                                    quest.analysisStatus === 'pending' ? 'var(--text-muted)' :
+                                                        (quest.dsa?.platform === 'codeforces' && quest.dsa?.rating)
+                                                            ? (quest.dsa.rating >= 2400 ? '#ff0000' :
+                                                                quest.dsa.rating >= 2100 ? '#ff8c00' :
+                                                                    quest.dsa.rating >= 1900 ? '#a0a' :
+                                                                        quest.dsa.rating >= 1600 ? '#0000ff' :
+                                                                            quest.dsa.rating >= 1400 ? '#03a89e' :
+                                                                                quest.dsa.rating >= 1200 ? '#008000' : '#808080')
+                                                            : complexity.color
+                                            }}>
+                                                {quest.analysisStatus === 'pending' ? (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span style={{ fontSize: '0.9rem', animation: 'pulse 1.5s infinite' }}>Analyzing...</span>
+                                                    </span>
+                                                ) : quest.analysisStatus === 'failed' ? (
+                                                    <span style={{ color: 'var(--error, #ff4444)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                        ⚠️ Failed
+                                                    </span>
+                                                ) : (
+                                                    quest.dsa?.platform === 'codeforces' && quest.dsa?.rating
+                                                        ? quest.dsa.rating
+                                                        : (quest.dsa?.platform === 'leetcode' && quest.dsa?.difficulty)
+                                                            ? quest.dsa.difficulty
+                                                            : complexity.label
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1323,7 +1481,15 @@ function QuestDetail() {
                                         <div style={{ position: 'relative', zIndex: 1 }}>
                                             <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⚡</div>
                                             <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>Reward</div>
-                                            <div style={{ fontWeight: 700, background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{quest.xpReward} XP</div>
+                                            <div style={{ fontWeight: 700, background: 'linear-gradient(135deg, var(--aurora-teal), var(--aurora-green))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                                {quest.analysisStatus === 'pending' ? (
+                                                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', WebkitTextFillColor: 'var(--text-muted)', animation: 'pulse 1.5s infinite' }}>Analyzing...</span>
+                                                ) : quest.analysisStatus === 'failed' ? (
+                                                    <span style={{ fontSize: '0.9rem', color: 'var(--error, #ff4444)', WebkitTextFillColor: 'var(--error, #ff4444)' }}>Failed</span>
+                                                ) : (
+                                                    `${quest.xpReward} XP`
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1681,7 +1847,51 @@ function QuestDetail() {
                                     </div>
                                 )}
 
-                                {quest.llmAnalysis?.reasoning && (
+                                {quest.analysisStatus === 'pending' && (
+                                    <div style={{
+                                        padding: '16px 20px',
+                                        background: 'rgba(139, 92, 246, 0.05)',
+                                        borderRadius: 'var(--radius-lg)',
+                                        border: '1px dashed rgba(139, 92, 246, 0.3)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '12px',
+                                        marginBottom: '24px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{
+                                                width: '16px',
+                                                height: '16px',
+                                                borderRadius: '50%',
+                                                border: '2px solid var(--aurora-purple)',
+                                                borderTopColor: 'transparent',
+                                                animation: 'spin 1s linear infinite'
+                                            }} />
+                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                                                AI Analysis in progress... The difficulty and XP reward will be updated shortly.
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={handleRetryAnalysis}
+                                            style={{
+                                                padding: '8px 16px',
+                                                background: 'rgba(139, 92, 246, 0.2)',
+                                                border: '1px solid rgba(139, 92, 246, 0.4)',
+                                                borderRadius: 'var(--radius-md)',
+                                                color: 'var(--aurora-purple)',
+                                                cursor: 'pointer',
+                                                fontSize: '0.85rem',
+                                                fontWeight: 600,
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            🔄 Retry
+                                        </button>
+                                    </div>
+                                )}
+
+                                {quest.llmAnalysis?.reasoning && quest.analysisStatus !== 'pending' && (
                                     <div
                                         onMouseEnter={() => setHoveredBlock('ai-task')}
                                         onMouseLeave={() => setHoveredBlock(null)}
@@ -1709,10 +1919,11 @@ function QuestDetail() {
                                         onMouseEnter={() => setHoveredBlock('dsa-details')}
                                         onMouseLeave={() => setHoveredBlock(null)}
                                         style={{
-                                            padding: '20px',
-                                            background: 'rgba(139, 92, 246, 0.05)',
+                                            background: 'var(--glass-bg)',
+                                            backdropFilter: 'blur(16px)',
                                             borderRadius: 'var(--radius-lg)',
-                                            border: hoveredBlock === 'dsa-details' ? `2px solid ${type.color}` : '1px solid rgba(139, 92, 246, 0.15)',
+                                            border: '1px solid var(--glass-border)',
+                                            padding: '24px',
                                             marginBottom: '24px',
                                             transition: 'all 0.3s ease',
                                             transform: hoveredBlock === 'dsa-details' ? 'translateY(-2px)' : 'translateY(0)',
@@ -1724,12 +1935,22 @@ function QuestDetail() {
                                             <span style={{ fontSize: '1.25rem' }}>💻</span>
                                             <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>Problem Details</span>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                                             <div><span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Platform:</span> <span style={{ fontWeight: 600, textTransform: 'capitalize', marginLeft: '8px' }}>{quest.dsa.platform}</span></div>
                                             {quest.dsa.topics?.length > 0 && (
-                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Topics:</span>
-                                                    {quest.dsa.topics.map((t, i) => <span key={i} style={{ padding: '4px 12px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', color: 'var(--aurora-blue)' }}>{t}</span>)}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                                                        onClick={() => setShowTopics(!showTopics)}
+                                                    >
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Topics:</span>
+                                                        <span style={{ fontSize: '0.9rem', opacity: 0.7 }}>{showTopics ? '👁️' : '👁️‍🗨️'}</span>
+                                                    </div>
+                                                    {showTopics && (
+                                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                                            {quest.dsa.topics.map((t, i) => <span key={i} style={{ padding: '4px 12px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', color: 'var(--aurora-blue)' }}>{t}</span>)}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

@@ -6,6 +6,7 @@ import {
     STATUS_FILTER_OPTIONS,
     TYPE_FILTER_OPTIONS,
     DATE_FIELD_OPTIONS,
+    DSA_PLATFORM_CONFIG,
     DEFAULT_FILTERS
 } from '../utils/constants';
 
@@ -38,6 +39,7 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
     const [localFilters, setLocalFilters] = useState({
         status: 'active',
         type: 'all',
+        platform: 'all',
         spilled: false,
         dateField: 'deadline',
         dateRanges: []
@@ -65,6 +67,7 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
             if (key === 'spilled') {
                 return searchParams.get('spilled') === 'true';
             }
+            if (key === 'platform') return searchParams.get('platform') || 'all';
             return searchParams.get(key) || (key === 'status' ? 'all' : key === 'type' ? 'all' : 'deadline');
         }
 
@@ -73,37 +76,62 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
 
     const statusFilter = getFilterValue('status');
     const typeFilter = getFilterValue('type');
+    const platformFilter = getFilterValue('platform');
     const spilledFilter = getFilterValue('spilled');
     const dateField = getFilterValue('dateField');
     const dateRanges = getFilterValue('dateRanges');
 
     // Set filter value based on mode
-    const setFilter = (key, value) => {
+    const setFilter = (keyOrUpdates, value) => {
+        const updates = typeof keyOrUpdates === 'object' ? keyOrUpdates : { [keyOrUpdates]: value };
+
         // Don't allow changing locked filters
-        if (lockedFilters[key] !== undefined) return;
+        for (const key of Object.keys(updates)) {
+            if (lockedFilters[key] !== undefined) return;
+        }
 
         if (mode === 'url') {
-            const newParams = new URLSearchParams(searchParams);
-            if (key === 'dateRanges') {
-                if (value.length > 0) {
-                    newParams.set('dateRanges', JSON.stringify(value));
-                } else {
-                    newParams.delete('dateRanges');
-                }
-            } else if (key === 'spilled') {
-                if (value) {
-                    newParams.set('spilled', 'true');
-                } else {
-                    newParams.delete('spilled');
-                }
-            } else if (value === 'all' || value === '') {
-                newParams.delete(key);
-            } else {
-                newParams.set(key, value);
-            }
-            setSearchParams(newParams);
+            setSearchParams(prev => {
+                const newParams = new URLSearchParams(prev);
+
+                Object.entries(updates).forEach(([key, val]) => {
+                    if (key === 'dateRanges') {
+                        if (val.length > 0) {
+                            newParams.set('dateRanges', JSON.stringify(val));
+                        } else {
+                            newParams.delete('dateRanges');
+                        }
+                    } else if (key === 'spilled') {
+                        if (val) {
+                            newParams.set('spilled', 'true');
+                        } else {
+                            newParams.delete('spilled');
+                        }
+                    } else if (val === 'all' || val === '') {
+                        newParams.delete(key);
+                    } else {
+                        newParams.set(key, val);
+                    }
+
+                    // AUTO-SELECT logic
+                    if (key === 'platform' && val !== 'all') {
+                        newParams.set('type', 'dsa');
+                    }
+                });
+
+                return newParams;
+            });
         } else {
-            setLocalFilters(prev => ({ ...prev, [key]: value }));
+            setLocalFilters(prev => {
+                const newFilters = { ...prev };
+                Object.entries(updates).forEach(([key, val]) => {
+                    newFilters[key] = val;
+                    if (key === 'platform' && val !== 'all') {
+                        newFilters.type = 'dsa';
+                    }
+                });
+                return newFilters;
+            });
         }
     };
 
@@ -112,6 +140,7 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
         const currentFilters = {
             status: statusFilter,
             type: typeFilter,
+            platform: platformFilter,
             spilled: spilledFilter,
             dateField,
             dateRanges
@@ -120,22 +149,16 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
         const currentSerialized = JSON.stringify(currentFilters);
 
         // Skip if values haven't changed
+        // Check if values changed
         if (prevFiltersRef.current === currentSerialized) {
             return;
         }
 
         prevFiltersRef.current = currentSerialized;
-
-        // Skip calling onFilterChange on initial mount in URL mode
-        // because the parent already has the initial filter values
-        if (isInitialMount.current && mode === 'url') {
-            isInitialMount.current = false;
-            return;
-        }
-
         isInitialMount.current = false;
+
         onFilterChange?.(currentFilters);
-    }, [statusFilter, typeFilter, spilledFilter, dateField, dateRanges, mode]);
+    }, [statusFilter, typeFilter, platformFilter, spilledFilter, dateField, dateRanges, mode]);
 
     const clearAllFilters = () => {
         if (mode === 'url') {
@@ -144,6 +167,7 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
             setLocalFilters({
                 status: lockedFilters.status || 'active',
                 type: lockedFilters.type || 'all',
+                platform: 'all',
                 spilled: false,
                 dateField: 'deadline',
                 dateRanges: []
@@ -164,18 +188,36 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
     const hasActiveFilters =
         (statusFilter !== 'all' && statusFilter !== (lockedFilters.status || 'all')) ||
         typeFilter !== 'all' ||
+        platformFilter !== 'all' ||
         spilledFilter ||
         dateRanges.length > 0;
 
     const activeFilterCount =
         ((statusFilter !== 'all' && !isLocked('status')) ? 1 : 0) +
         (typeFilter !== 'all' ? 1 : 0) +
+        (platformFilter !== 'all' ? 1 : 0) +
         (spilledFilter ? 1 : 0) +
         dateRanges.length;
 
     // Use imported constants for filter options
     const statusOptions = STATUS_FILTER_OPTIONS;
     const typeOptions = TYPE_FILTER_OPTIONS;
+
+    // Generate platform options from config
+    const platformOptions = [
+        { value: 'all', icon: '🌐', label: 'All' },
+        ...Object.entries(DSA_PLATFORM_CONFIG).map(([key, config]) => ({
+            value: config.label.toLowerCase() === 'geeksforgeeks' ? 'gfg' : config.label.toLowerCase(),
+            icon: config.icon,
+            label: config.label,
+            color: config.color
+        }))
+    ];
+    // Correction: 'geeksforgeeks' value used in constants.js is 'geeksforgeeks' or 'gfg'? 
+    // DSA_PLATFORMS.GFG = 'geeksforgeeks'.
+    // DSA_PLATFORM_CONFIG[DSA_PLATFORMS.GFG] label is 'GeeksforGeeks'.
+    // label.toLowerCase() works.
+
     const dateFieldOptions = DATE_FIELD_OPTIONS;
     const datePresets = getDatePresets();
 
@@ -191,9 +233,10 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
                     if (option.isSpilledToggle) {
                         setFilter('spilled', !spilledFilter);
                     } else {
-                        setFilter(filterKey, option.value);
                         if (filterKey === 'status') {
-                            setFilter('spilled', false);
+                            setFilter({ status: option.value, spilled: false });
+                        } else {
+                            setFilter(filterKey, option.value);
                         }
                     }
                 }}
@@ -319,6 +362,28 @@ function QuestFilter({ onFilterChange, config = {}, resultCount = 0 }) {
                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                         {typeOptions.map(type =>
                                             renderFilterButton(type, typeFilter, 'type')
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Platform Filter (DSA) */}
+                            {!isHidden('platform') && (typeFilter === 'dsa' || typeFilter === 'all') && (
+                                <div>
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '10px',
+                                        fontSize: '0.8rem',
+                                        color: 'var(--text-muted)',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                        fontWeight: 600
+                                    }}>
+                                        Platform
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        {platformOptions.map(platform =>
+                                            renderFilterButton(platform, platformFilter, 'platform')
                                         )}
                                     </div>
                                 </div>

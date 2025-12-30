@@ -3,17 +3,78 @@ import Quest from '../models/Quest.js';
 import UserStats from '../models/UserStats.js';
 import { analyzeQuestComplexity } from '../llm/index.js';
 import { extractYouTubeVideoId, getVideoInfo } from '../utils/youtube.js';
+import { fetchDSAProblem, detectPlatform } from '../services/dsaService.js';
 
 const router = express.Router();
+
+// POST /api/quests/leetcode/fetch - Fetch LeetCode problem details from URL
+router.post('/leetcode/fetch', async (req, res, next) => {
+    try {
+        const { url } = req.body;
+
+        if (!url) {
+            return res.status(400).json({ error: 'LeetCode URL is required' });
+        }
+
+        const problemDetails = await fetchDSAProblem(url);
+
+        if (!problemDetails) {
+            return res.status(404).json({
+                error: 'Could not fetch problem details. Please check the URL or try again.'
+            });
+        }
+
+        res.json(problemDetails);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// POST /api/quests/dsa/fetch - Fetch DSA problem details from any platform URL
+router.post('/dsa/fetch', async (req, res, next) => {
+    try {
+        const { url } = req.body;
+
+        if (!url) {
+            return res.status(400).json({ error: 'Problem URL is required' });
+        }
+
+        const platform = detectPlatform(url);
+        if (platform === 'unknown') {
+            return res.status(400).json({
+                error: 'Unsupported platform. Supported: LeetCode, Codeforces, CSES'
+            });
+        }
+
+        const problemDetails = await fetchDSAProblem(url);
+
+        if (!problemDetails) {
+            return res.status(404).json({
+                error: 'Could not fetch problem details. Please check the URL or try again.'
+            });
+        }
+
+        res.json(problemDetails);
+    } catch (error) {
+        next(error);
+    }
+});
 
 // GET /api/quests - List all quests with optional filters
 router.get('/', async (req, res, next) => {
     try {
-        const { status, type, week, dateFrom, dateTo, dateField = 'deadline', dateRanges, spilled } = req.query;
+        const { status, type, platform, week, dateFrom, dateTo, dateField = 'deadline', dateRanges, spilled } = req.query;
         const filter = {};
 
-        if (status) filter.status = status;
+        if (status) {
+            if (status === 'active') {
+                filter.status = { $in: ['active', 'spilled'] };
+            } else {
+                filter.status = status;
+            }
+        }
         if (type) filter.type = type;
+        if (platform) filter['dsa.platform'] = platform;
 
         // Filter for spilled quests only
         if (spilled === 'true') {
@@ -128,7 +189,7 @@ router.get('/dashboard', async (req, res, next) => {
         const currentSunday = new Date(nextMonday);
         currentSunday.setSeconds(currentSunday.getSeconds() - 1);
 
-        const [activeQuests, completedQuests, stats] = await Promise.all([
+        const [activeQuests, completedQuests, stats, weeklyQuests] = await Promise.all([
             Quest.find({
                 status: 'active',
                 deadline: { $lt: nextMonday } // Deadline before next Monday 12 AM
@@ -137,11 +198,20 @@ router.get('/dashboard', async (req, res, next) => {
                 status: 'completed',
                 completedAt: { $gte: currentMonday, $lt: nextMonday } // Completed this week
             }).sort({ completedAt: -1 }),
-            UserStats.getStats()
+            UserStats.getStats(),
+            // Fetch strict weekly quests for goal calculation (aligned with stats.js logic)
+            Quest.find({
+                targetWeek: { $gte: currentMonday, $lt: nextMonday }
+            })
         ]);
 
         // Count spilled quests
         const spilledCount = activeQuests.filter(q => q.spillCount > 0).length;
+
+        // Calculate Weekly Goal (XP)
+        const weeklyEarnedXP = weeklyQuests.filter(q => q.status === 'completed').reduce((sum, q) => sum + (q.xpReward || 0), 0);
+        // Fixed weekly goal as per user request
+        const weeklyTargetXP = 2500;
 
         res.json({
             weekStart: currentMonday,
@@ -155,7 +225,12 @@ router.get('/dashboard', async (req, res, next) => {
                 currentLevelXP: stats.currentLevelXP,
                 xpToNextLevel: stats.xpToNextLevel,
                 streak: stats.streak,
-                questsCompleted: stats.questsCompleted
+                questsCompleted: stats.questsCompleted,
+                weekly: {
+                    current: weeklyEarnedXP,
+                    target: weeklyTargetXP,
+                    progress: weeklyTargetXP > 0 ? Math.round((weeklyEarnedXP / weeklyTargetXP) * 100) : 0
+                }
             }
         });
     } catch (error) {
@@ -224,15 +299,61 @@ router.post('/', async (req, res, next) => {
             }
         }
 
-        // Handle DSA quest
+        // Handle DSA quest - auto-fetch problem details from platform
         if (type === 'dsa' && dsa) {
+            const platform = dsa.platform || detectPlatform(dsa.problemUrl) || 'other';
+
+            // Initialize DSA data with user-provided values
             questData.dsa = {
-                platform: dsa.platform || 'leetcode',
+                platform: platform,
                 problemUrl: dsa.problemUrl,
                 difficulty: dsa.difficulty,
                 topics: dsa.topics || [],
                 problemNumber: dsa.problemNumber
             };
+
+            // Try to fetch problem details from supported platforms
+            if (dsa.problemUrl && ['leetcode', 'codeforces', 'cses'].includes(platform)) {
+                try {
+                    const problemDetails = await fetchDSAProblem(dsa.problemUrl);
+                    if (problemDetails) {
+                        // Postfill/override with fetched data
+                        questData.dsa.difficulty = problemDetails.difficulty || dsa.difficulty;
+                        questData.dsa.topics = problemDetails.topics?.length > 0
+                            ? problemDetails.topics
+                            : (dsa.topics || []);
+
+                        // Update title if not provided by user
+                        if (!title || title === dsa.problemUrl) {
+                            questData.title = problemDetails.title;
+                        }
+
+                        // Add description from platform if available
+                        if (problemDetails.description && !description) {
+                            questData.description = problemDetails.description.slice(0, 500);
+                        }
+
+                        // Store fetched platform title for LLM analysis
+                        questData.dsa.platformTitle = problemDetails.title;
+
+                        // Combine description and constraints (if any) for LLM analysis
+                        // This ensures LLM sees constraints but UI (using quest.description) stays clean
+                        let fullContext = problemDetails.description;
+                        if (problemDetails.constraints) {
+                            fullContext += `\n\nConstraints: ${problemDetails.constraints}`;
+                        }
+                        questData.dsa.platformDescription = fullContext;
+
+                        // For Codeforces, store rating
+                        if (platform === 'codeforces' && problemDetails.rating) {
+                            questData.dsa.rating = problemDetails.rating;
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error fetching DSA problem details:', err.message);
+                    // Continue with user-provided data
+                }
+            }
         }
 
         // Create quest first
@@ -248,10 +369,15 @@ router.post('/', async (req, res, next) => {
                         reasoning: analysis.reasoning,
                         analyzedAt: new Date()
                     };
+                    quest.analysisStatus = 'completed';
                     await quest.save();
                 }
             })
-            .catch(err => console.error('LLM analysis error:', err));
+            .catch(async err => {
+                console.error('LLM analysis error:', err);
+                quest.analysisStatus = 'failed';
+                await quest.save();
+            });
 
         await quest.save();
         res.status(201).json(quest);
@@ -349,6 +475,50 @@ router.delete('/:id', async (req, res, next) => {
             return res.status(404).json({ error: 'Quest not found' });
         }
         res.json({ message: 'Quest deleted', quest });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// POST /api/quests/:id/retry-analysis - Retry LLM analysis for stuck quests
+router.post('/:id/retry-analysis', async (req, res, next) => {
+    try {
+        const quest = await Quest.findById(req.params.id);
+        if (!quest) {
+            return res.status(404).json({ error: 'Quest not found' });
+        }
+
+        // Only allow retry if analysis is pending or failed
+        if (quest.analysisStatus === 'completed') {
+            return res.status(400).json({ error: 'Analysis already completed' });
+        }
+
+        // Reset to pending and trigger analysis
+        quest.analysisStatus = 'pending';
+        await quest.save();
+
+        // Run analysis async
+        analyzeQuestComplexity(quest)
+            .then(async (analysis) => {
+                if (analysis) {
+                    quest.complexity = analysis.complexity;
+                    quest.xpReward = analysis.xpReward;
+                    quest.llmAnalysis = {
+                        reasoning: analysis.reasoning,
+                        analyzedAt: new Date()
+                    };
+                    quest.analysisStatus = 'completed';
+                    await quest.save();
+                    console.log(`Retry analysis completed for quest ${quest._id}`);
+                }
+            })
+            .catch(async err => {
+                console.error('Retry LLM analysis error:', err);
+                quest.analysisStatus = 'failed';
+                await quest.save();
+            });
+
+        res.json({ message: 'Analysis retry started', quest });
     } catch (error) {
         next(error);
     }

@@ -18,8 +18,10 @@ router.get('/', async (req, res, next) => {
             targetWeek: { $gte: currentMonday, $lt: nextMonday }
         });
 
-        const weeklyCompleted = weeklyQuests.filter(q => q.status === 'completed').length;
-        const weeklyTotal = weeklyQuests.length;
+        const weeklyCompleted = weeklyQuests.filter(q => q.status === 'completed');
+        const weeklyEarnedXP = weeklyCompleted.reduce((sum, q) => sum + (q.xpReward || 0), 0);
+        // Fixed weekly goal
+        const weeklyTotalXP = 2500;
         const weeklySpilled = weeklyQuests.filter(q => q.spillCount > 0).length;
 
         res.json({
@@ -33,12 +35,23 @@ router.get('/', async (req, res, next) => {
             questsByType: stats.questsByType,
             achievements: stats.achievements,
             weekly: {
-                completed: weeklyCompleted,
-                total: weeklyTotal,
+                current: weeklyEarnedXP,
+                target: weeklyTotalXP,
                 spilled: weeklySpilled,
-                progress: weeklyTotal > 0 ? Math.round((weeklyCompleted / weeklyTotal) * 100) : 0
+                progress: weeklyTotalXP > 0 ? Math.round((weeklyEarnedXP / weeklyTotalXP) * 100) : 0
             }
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// POST /api/stats/levelup - Manual level up
+router.post('/levelup', async (req, res, next) => {
+    try {
+        const stats = await UserStats.getStats();
+        const result = await stats.levelUp();
+        res.json(result);
     } catch (error) {
         next(error);
     }

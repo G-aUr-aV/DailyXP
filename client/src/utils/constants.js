@@ -181,6 +181,7 @@ export const DATE_FIELD_OPTIONS = [
 export const DEFAULT_FILTERS = {
     status: 'all',
     type: 'all',
+    platform: 'all',
     spilled: false,
     dateField: 'deadline',
     dateRanges: []

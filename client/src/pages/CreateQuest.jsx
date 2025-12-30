@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { questAPI } from '../services/api';
+import StyledDropdown from '../components/common/StyledDropdown';
+
+const PLATFORM_OPTIONS = [
+    { value: 'leetcode', label: 'LeetCode', icon: '🟠' },
+    { value: 'codeforces', label: 'Codeforces', icon: '🔵' },
+    { value: 'cses', label: 'CSES', icon: '🟢' },
+    { value: 'other', label: 'Other', icon: '⚪' }
+];
 
 function CreateQuest() {
     const navigate = useNavigate();
@@ -11,7 +19,7 @@ function CreateQuest() {
         type: 'task',
         title: '',
         description: '',
-        deadline: getComingSunday(),
+        deadline: getToday(),
         videoUrl: '',
         platform: 'leetcode',
         problemUrl: '',
@@ -21,18 +29,14 @@ function CreateQuest() {
         timerEnabled: false,
         alarmEnabled: false,
         alarmHours: 0,
-        alarmMinutes: 1,
+        alarmMinutes: 30,
         alarmSeconds: 0
     });
 
-    function getComingSunday() {
+    function getToday() {
         const today = new Date();
-        const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
-        const daysUntilSunday = dayOfWeek === 0 ? 0 : (7 - dayOfWeek);
-        const comingSunday = new Date(today);
-        comingSunday.setDate(today.getDate() + daysUntilSunday);
-        comingSunday.setHours(23, 59, 59, 999); // 11:59:59 PM
-        return comingSunday.toISOString().split('T')[0];
+        today.setHours(23, 59, 59, 999); // 11:59:59 PM
+        return today.toISOString().split('T')[0];
     }
 
     const handleChange = (e) => {
@@ -192,11 +196,25 @@ function CreateQuest() {
                                     gap: '12px',
                                     padding: '14px 16px',
                                     background: isSelected ? type.bg : 'var(--glass-bg)',
-                                    border: `2px solid ${isSelected ? type.color : 'var(--glass-border)'}`,
+                                    border: isSelected ? `2px solid ${type.color}` : '1px solid transparent',
                                     borderRadius: 'var(--radius-md)',
                                     cursor: 'pointer',
-                                    transition: 'all 0.15s ease',
+                                    transition: 'all 0.2s ease',
                                     textAlign: 'left'
+                                }}
+                                onMouseEnter={e => {
+                                    if (!isSelected) {
+                                        e.currentTarget.style.border = `2px solid ${type.color}`;
+                                    }
+                                    e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
+                                    e.currentTarget.style.boxShadow = `0 8px 25px ${type.color}30`;
+                                }}
+                                onMouseLeave={e => {
+                                    if (!isSelected) {
+                                        e.currentTarget.style.border = '1px solid transparent';
+                                    }
+                                    e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                    e.currentTarget.style.boxShadow = 'none';
                                 }}
                             >
                                 <div style={{
@@ -322,28 +340,17 @@ function CreateQuest() {
                                 flexDirection: 'column',
                                 gap: '12px'
                             }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--quest-dsa)' }}>
-                                            Platform
-                                        </label>
-                                        <select name="platform" className="form-select" value={formData.platform} onChange={handleChange} style={{ padding: '10px 12px' }}>
-                                            <option value="leetcode">LeetCode</option>
-                                            <option value="hackerrank">HackerRank</option>
-                                            <option value="codeforces">Codeforces</option>
-                                            <option value="other">Other</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--quest-dsa)' }}>
-                                            Difficulty
-                                        </label>
-                                        <select name="difficulty" className="form-select" value={formData.difficulty} onChange={handleChange} style={{ padding: '10px 12px' }}>
-                                            <option value="easy">🌱 Easy</option>
-                                            <option value="medium">⚡ Medium</option>
-                                            <option value="hard">🔥 Hard</option>
-                                        </select>
-                                    </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--quest-dsa)' }}>
+                                        Platform
+                                    </label>
+                                    <StyledDropdown
+                                        name="platform"
+                                        options={PLATFORM_OPTIONS}
+                                        value={formData.platform}
+                                        onChange={handleChange}
+                                        color="var(--quest-dsa)"
+                                    />
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--quest-dsa)' }}>
@@ -355,20 +362,6 @@ function CreateQuest() {
                                         className="form-input"
                                         placeholder="https://leetcode.com/problems/..."
                                         value={formData.problemUrl}
-                                        onChange={handleChange}
-                                        style={{ padding: '10px 12px' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--quest-dsa)' }}>
-                                        Topics <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(comma-separated)</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="topics"
-                                        className="form-input"
-                                        placeholder="arrays, dp, graphs..."
-                                        value={formData.topics}
                                         onChange={handleChange}
                                         style={{ padding: '10px 12px' }}
                                     />
@@ -394,17 +387,34 @@ function CreateQuest() {
                         </div>
 
                         {/* Timer Configuration */}
-                        <div style={{
-                            padding: '16px',
-                            background: formData.timerEnabled
-                                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.05))'
-                                : 'rgba(255, 255, 255, 0.02)',
-                            borderRadius: 'var(--radius-md)',
-                            border: formData.timerEnabled
-                                ? '2px solid rgba(139, 92, 246, 0.4)'
-                                : '1px solid var(--glass-border)',
-                            transition: 'all 0.3s ease'
-                        }}>
+                        <div
+                            style={{
+                                padding: '16px',
+                                background: formData.timerEnabled
+                                    ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(0, 255, 204, 0.05))'
+                                    : 'rgba(255, 255, 255, 0.02)',
+                                borderRadius: 'var(--radius-md)',
+                                border: formData.timerEnabled
+                                    ? '2px solid rgba(139, 92, 246, 0.4)'
+                                    : '1px solid transparent',
+                                transition: 'all 0.3s ease',
+                                cursor: 'pointer'
+                            }}
+                            onMouseEnter={e => {
+                                if (!formData.timerEnabled) {
+                                    e.currentTarget.style.border = '2px solid var(--aurora-purple)';
+                                }
+                                e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
+                                e.currentTarget.style.boxShadow = '0 8px 25px rgba(139, 92, 246, 0.2)';
+                            }}
+                            onMouseLeave={e => {
+                                if (!formData.timerEnabled) {
+                                    e.currentTarget.style.border = '1px solid transparent';
+                                }
+                                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                e.currentTarget.style.boxShadow = 'none';
+                            }}
+                        >
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',

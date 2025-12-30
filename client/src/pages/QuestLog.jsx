@@ -18,6 +18,7 @@ function QuestLog() {
 
             if (filters.status !== 'all') params.status = filters.status;
             if (filters.type !== 'all') params.type = filters.type;
+            if (filters.platform && filters.platform !== 'all') params.platform = filters.platform;
             if (filters.spilled) params.spilled = 'true';
             params.dateField = filters.dateField;
 
@@ -57,10 +58,6 @@ function QuestLog() {
         filters.spilled ||
         filters.dateRanges.length > 0;
 
-    if (loading) {
-        return <LoadingSpinner />;
-    }
-
     return (
         <div>
             {/* Page Header */}
@@ -88,8 +85,12 @@ function QuestLog() {
                 resultCount={quests.length}
             />
 
-            {/* Quest List */}
-            {quests.length > 0 ? (
+            {/* Content Area */}
+            {loading ? (
+                <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center' }}>
+                    <LoadingSpinner />
+                </div>
+            ) : quests.length > 0 ? (
                 <div className="quest-grid">
                     {quests.map(quest => (
                         <QuestCard

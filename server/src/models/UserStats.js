@@ -62,12 +62,12 @@ userStatsSchema.methods.addXP = async function (amount) {
     this.totalXP += amount;
     this.currentLevelXP += amount;
 
-    // Check for level up
-    while (this.currentLevelXP >= this.xpToNextLevel) {
-        this.currentLevelXP -= this.xpToNextLevel;
-        this.level += 1;
-        this.xpToNextLevel = this.constructor.getXPForLevel(this.level + 1);
-    }
+    // Check for level up - MANUAL NOW
+    // while (this.currentLevelXP >= this.xpToNextLevel) {
+    //     this.currentLevelXP -= this.xpToNextLevel;
+    //     this.level += 1;
+    //     this.xpToNextLevel = this.constructor.getXPForLevel(this.level + 1);
+    // }
 
     // Update streak
     const today = new Date();
@@ -98,6 +98,22 @@ userStatsSchema.methods.addXP = async function (amount) {
         xpToNextLevel: this.xpToNextLevel,
         streak: this.streak
     };
+};
+
+// Method to manually level up
+userStatsSchema.methods.levelUp = async function () {
+    if (this.currentLevelXP >= this.xpToNextLevel) {
+        this.currentLevelXP -= this.xpToNextLevel;
+        this.level += 1;
+        this.xpToNextLevel = this.constructor.getXPForLevel(this.level + 1);
+        await this.save();
+        return {
+            level: this.level,
+            currentLevelXP: this.currentLevelXP,
+            xpToNextLevel: this.xpToNextLevel
+        };
+    }
+    throw new Error('Not enough XP to level up');
 };
 
 // Get or create stats (single user mode)

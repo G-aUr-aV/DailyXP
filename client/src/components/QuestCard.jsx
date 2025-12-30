@@ -19,9 +19,10 @@ function QuestCard({ quest, onComplete }) {
     };
 
     // Compute derived values
+    const isCompleted = quest.status === 'completed';
     const daysRemaining = getDaysRemaining(quest.deadline);
-    const isUrgent = daysRemaining !== null && daysRemaining <= 2 && daysRemaining >= 0;
-    const isOverdue = daysRemaining !== null && daysRemaining < 0;
+    const isUrgent = !isCompleted && daysRemaining !== null && daysRemaining <= 2 && daysRemaining >= 0;
+    const isOverdue = !isCompleted && daysRemaining !== null && daysRemaining < 0;
 
     const typeConfig = QUEST_TYPE_CONFIG[quest.type] || QUEST_TYPE_CONFIG.task;
     const complexityConfig = QUEST_COMPLEXITY_CONFIG[quest.complexity] || QUEST_COMPLEXITY_CONFIG.medium;
@@ -65,6 +66,9 @@ function QuestCard({ quest, onComplete }) {
     };
 
     const getDeadlineText = () => {
+        if (isCompleted) {
+            return `📅 ${new Date(quest.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+        }
         if (isOverdue) return `⚠️ ${Math.abs(daysRemaining)}d overdue`;
         if (daysRemaining === 0) return '⏰ Due today';
         return `📅 ${daysRemaining}d left`;
@@ -81,7 +85,13 @@ function QuestCard({ quest, onComplete }) {
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={handleCardClick}
-            style={{ cursor: 'pointer' }}
+            style={{
+                cursor: 'pointer',
+                ...(isCompleted && {
+                    border: '2px solid rgba(16, 185, 129, 0.5)',
+                    boxShadow: '0 0 20px rgba(16, 185, 129, 0.15)'
+                })
+            }}
         >
             {/* Realistic Layered Wave Animation */}
             <div
@@ -159,12 +169,60 @@ function QuestCard({ quest, onComplete }) {
                 <span className="quest-spilled">Spilled ×{quest.spillCount}</span>
             )}
 
+            {/* Completed Checkmark */}
+            {isCompleted && (
+                <>
+                    <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, var(--success), #059669)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.75rem',
+                        color: 'white',
+                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+                        zIndex: 20
+                    }}>
+                        ✓
+                    </div>
+                    {/* Diagonal watermark */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%) rotate(-35deg)',
+                        fontSize: '2rem',
+                        fontWeight: 900,
+                        color: 'rgba(16, 185, 129, 0.08)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.3em',
+                        whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                        zIndex: 3,
+                        userSelect: 'none'
+                    }}>
+                        Completed
+                    </div>
+                </>
+            )}
+
             {/* Header */}
             <div className="quest-header">
                 <Link to={`/quests/${quest._id}`} style={{ textDecoration: 'none' }}>
                     <h4 className="quest-title">{quest.title}</h4>
                 </Link>
-                <div className="quest-xp">{quest.xpReward} XP</div>
+                <div className="quest-xp">
+                    {(quest.analysisStatus === 'pending' && !quest.xpReward) ? (
+                        <span style={{ fontSize: '0.8rem', opacity: 0.8, animation: 'pulse 1.5s infinite' }}>...</span>
+                    ) : (
+                        `${quest.xpReward || 0} XP`
+                    )}
+                </div>
             </div>
 
             {/* Description */}
@@ -185,9 +243,27 @@ function QuestCard({ quest, onComplete }) {
                 <span className={`quest-badge badge-${quest.type}`}>
                     {typeConfig.icon} {quest.type}
                 </span>
-                <span className={`quest-badge badge-${quest.complexity || 'medium'}`}>
-                    {quest.complexity}
-                </span>
+
+                {/* Platform Badge for DSA */}
+                {quest.type === 'DSA' && quest.dsa?.platform && (
+                    <span className="quest-badge badge-medium" style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)' }}>
+                        {quest.dsa.platform}
+                    </span>
+                )}
+
+                {(quest.analysisStatus === 'pending' && !quest.complexity) ? (
+                    <span className="quest-badge badge-medium" style={{ animation: 'pulse 1.5s infinite' }}>
+                        ⏳ Analyzing
+                    </span>
+                ) : quest.analysisStatus === 'failed' ? (
+                    <span className="quest-badge badge-hard" title="Analysis failed">
+                        ⚠️ Analysis Failed
+                    </span>
+                ) : (
+                    <span className={`quest-badge badge-${quest.complexity || 'medium'}`}>
+                        {quest.complexity}
+                    </span>
+                )}
             </div>
 
             {/* Timestamps Row - Popup details on hover */}
@@ -251,7 +327,7 @@ function QuestCard({ quest, onComplete }) {
 
             {/* Timer Indicator */}
             {quest.timer?.enabled && (
-                <TimerIndicator timer={quest.timer} />
+                <TimerIndicator timer={quest.timer} isCompleted={isCompleted} />
             )}
 
             {/* Video Progress Bar */}
@@ -286,8 +362,20 @@ function QuestCard({ quest, onComplete }) {
 /**
  * Timer Indicator sub-component
  */
-function TimerIndicator({ timer }) {
+function TimerIndicator({ timer, isCompleted }) {
     const isRunning = timer.isRunning;
+
+    const getStatusText = () => {
+        if (isCompleted) return '';
+        if (isRunning) return '● Running';
+        return '⏸ Paused';
+    };
+
+    const getIndicatorColor = () => {
+        if (isCompleted) return 'var(--success)';
+        if (isRunning) return 'var(--aurora-teal)';
+        return '#f59e0b';
+    };
 
     return (
         <div style={{
@@ -296,13 +384,17 @@ function TimerIndicator({ timer }) {
             gap: '8px',
             marginTop: 'var(--space-sm)',
             padding: '8px 12px',
-            background: isRunning
-                ? 'linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(139, 92, 246, 0.1))'
-                : 'rgba(139, 92, 246, 0.08)',
+            background: isCompleted
+                ? 'rgba(16, 185, 129, 0.08)'
+                : isRunning
+                    ? 'linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(139, 92, 246, 0.1))'
+                    : 'rgba(139, 92, 246, 0.08)',
             borderRadius: 'var(--radius-md)',
-            border: isRunning
-                ? '1px solid rgba(0, 255, 204, 0.4)'
-                : '1px solid rgba(139, 92, 246, 0.2)',
+            border: isCompleted
+                ? '1px solid rgba(16, 185, 129, 0.3)'
+                : isRunning
+                    ? '1px solid rgba(0, 255, 204, 0.4)'
+                    : '1px solid rgba(139, 92, 246, 0.2)',
             isolation: 'isolate',
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden'
@@ -311,7 +403,7 @@ function TimerIndicator({ timer }) {
                 width: '10px',
                 height: '10px',
                 borderRadius: '50%',
-                background: isRunning ? 'var(--aurora-teal)' : '#f59e0b',
+                background: getIndicatorColor(),
                 boxShadow: isRunning ? '0 0 8px var(--aurora-teal)' : 'none',
                 animation: isRunning ? 'pulse 1s ease-in-out infinite' : 'none'
             }} />
@@ -319,7 +411,7 @@ function TimerIndicator({ timer }) {
                 fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
                 fontWeight: 700,
                 fontSize: '0.9rem',
-                color: isRunning ? 'var(--aurora-teal)' : 'var(--aurora-purple)',
+                color: isCompleted ? 'var(--success)' : isRunning ? 'var(--aurora-teal)' : 'var(--aurora-purple)',
                 transform: 'translateZ(0)',
                 textShadow: 'none',
                 WebkitFontSmoothing: 'antialiased',
@@ -329,10 +421,10 @@ function TimerIndicator({ timer }) {
             </span>
             <span style={{
                 fontSize: '0.7rem',
-                color: 'var(--text-muted)',
+                color: isCompleted ? 'var(--success)' : 'var(--text-muted)',
                 marginLeft: 'auto'
             }}>
-                {isRunning ? '● Running' : '⏸ Paused'}
+                {getStatusText()}
             </span>
         </div>
     );

@@ -29,6 +29,8 @@
   --aurora-blue-glow: rgba(59, 130, 246, 0.3);
   --aurora-green: #10b981;
   --aurora-green-glow: rgba(16, 185, 129, 0.3);
+  --aurora-gold: #FFD700;
+  --aurora-gold-glow: rgba(255, 215, 0, 0.3);
 
   /* Quest Type Colors */
   --quest-youtube: #0ea5e9;
@@ -542,6 +544,13 @@ h4 {
   border: 1px solid var(--glass-border);
   position: relative;
   overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.stats-panel:hover {
+  border: 2px solid var(--aurora-teal);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 255, 204, 0.15);
 }
 
 .stats-panel::before {
@@ -790,6 +799,10 @@ h4 {
   overflow: hidden;
 }
 
+.btn:hover {
+  transform: translateY(-2px);
+}
+
 .btn::before {
   content: '';
   position: absolute;
@@ -892,13 +905,22 @@ h4 {
   transition: all var(--transition-fast);
 }
 
+.form-input:hover,
+.form-select:hover,
+.form-textarea:hover {
+  border: 2px solid var(--aurora-teal);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 255, 204, 0.1);
+}
+
 .form-input:focus,
 .form-select:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--aurora-teal);
+  border: 2px solid var(--aurora-teal);
   box-shadow: 0 0 0 3px var(--aurora-teal-glow), 0 0 20px var(--aurora-teal-glow);
   background: rgba(255, 255, 255, 0.05);
+  transform: translateY(0);
 }
 
 .form-input::placeholder {
@@ -919,6 +941,9 @@ h4 {
 
 .form-select {
   cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
@@ -926,9 +951,26 @@ h4 {
   padding-right: 40px;
 }
 
+.form-select option {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 10px;
+}
+
 .form-textarea {
   min-height: 120px;
   resize: vertical;
+}
+
+/* Autofill styling fix */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--bg-primary) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: var(--text-primary);
 }
 
 /* ============================================
@@ -994,7 +1036,8 @@ h4 {
 .nav-link:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
-  border-color: var(--glass-border);
+  border: 2px solid var(--aurora-teal);
+  transform: translateX(4px);
 }
 
 .nav-link.active {
@@ -1181,6 +1224,18 @@ h4 {
   to {
     opacity: 1;
     transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -1672,4 +1727,152 @@ h4 {
   color: var(--text-muted);
   font-size: 0.7rem;
   margin-top: 2px;
+}
+
+/* Level Up Button */
+.btn-levelup {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #1a1a2e;
+  /* Dark text for contrast */
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 8px 24px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 20px rgba(255, 165, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.btn-levelup:hover {
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+  border-color: #FFF;
+}
+
+.btn-levelup::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: rotate(45deg);
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) rotate(45deg);
+  }
+
+  100% {
+    transform: translateX(100%) rotate(45deg);
+  }
+}
+
+/* Level Up Overlay (Celebration) */
+.levelup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.4s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+.levelup-content {
+  text-align: center;
+  animation: zoomInBounce 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  position: relative;
+}
+
+.levelup-badge {
+  font-size: 6rem;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.5));
+  animation: bounce 2s infinite;
+}
+
+.levelup-title {
+  font-size: 4rem;
+  font-weight: 900;
+  background: linear-gradient(to right, #FFD700, #FFA500, #FFD700);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 3s linear infinite;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.levelup-subtitle {
+  font-size: 1.8rem;
+  color: #E2E8F0;
+  margin-bottom: 40px;
+}
+
+.levelup-close {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 10px 30px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.levelup-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFF;
+  border-color: #FFF;
+}
+
+@keyframes zoomInBounce {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }

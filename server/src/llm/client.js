@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
 export const USE_MOCK = !GEMINI_API_KEY || GEMINI_API_KEY === 'your-gemini-api-key-here';
@@ -54,12 +54,28 @@ export class GeminiClient {
      * @returns {Promise<object|null>} - Parsed JSON or null
      */
     async generateJSON(prompt) {
-        const text = await this.generateContent(prompt);
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+        try {
+            const text = await this.generateContent(prompt);
+            if (!text) return null;
+
+            // Remove markdown code blocks if present
+            let cleanText = text.replace(/```json\n?|\n?```/g, '').replace(/```\n?|\n?```/g, '');
+
+            // Find the JSON object string
+            const start = cleanText.indexOf('{');
+            const end = cleanText.lastIndexOf('}');
+
+            if (start !== -1 && end !== -1) {
+                cleanText = cleanText.substring(start, end + 1);
+                return JSON.parse(cleanText);
+            }
+
+            console.error('Failed to parse JSON from LLM response:', text);
+            return null;
+        } catch (error) {
+            console.error('LLM JSON parsing error:', error);
+            return null;
         }
-        return null;
     }
 }
 

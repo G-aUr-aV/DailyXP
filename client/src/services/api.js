@@ -62,6 +62,11 @@ export const questAPI = {
         method: 'PUT',
         body: JSON.stringify({ currentTime }),
     }),
+
+    // Analysis retry
+    retryAnalysis: (id) => fetchAPI(`/quests/${id}/retry-analysis`, {
+        method: 'POST',
+    }),
 };
 
 // Video Progress API
@@ -85,6 +90,10 @@ export const statsAPI = {
     getAchievements: () => fetchAPI('/stats/achievements'),
 
     checkAchievements: () => fetchAPI('/stats/check-achievements', {
+        method: 'POST',
+    }),
+
+    levelUp: () => fetchAPI('/stats/levelup', {
         method: 'POST',
     }),
 };

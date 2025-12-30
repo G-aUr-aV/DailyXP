@@ -21,22 +21,36 @@ function Dashboard() {
     const { toast, showXP, showError, hideToast } = useToast();
 
     // Fetch dashboard data
-    const fetchDashboard = async () => {
+    const fetchDashboard = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const data = await questAPI.getDashboard();
             setDashboardData(data);
             setError(null);
         } catch (err) {
             setError(err.message);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
     useEffect(() => {
         fetchDashboard();
     }, []);
+
+    // Poll for pending analysis
+    useEffect(() => {
+        const hasPending = dashboardData?.activeQuests?.some(q => q.analysisStatus === 'pending');
+
+        let interval;
+        if (hasPending) {
+            interval = setInterval(() => fetchDashboard(true), 3000);
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [dashboardData]);
 
     // Real-time timer updates for running timers
     useEffect(() => {
@@ -108,6 +122,12 @@ function Dashboard() {
         return allQuests.filter(quest => {
             if (filters.status !== 'all' && quest._status !== filters.status) return false;
             if (filters.type !== 'all' && quest.type !== filters.type) return false;
+
+            // Platform filter
+            if (filters.platform && filters.platform !== 'all') {
+                if (quest.type !== 'DSA' || quest.dsa?.platform !== filters.platform) return false;
+            }
+
             if (filters.dateRanges.length > 0) {
                 const fieldValue = quest[filters.dateField];
                 if (!isInDateRange(fieldValue, filters.dateRanges)) return false;
@@ -118,7 +138,7 @@ function Dashboard() {
     };
 
     const filteredQuests = getFilteredQuests();
-    const hasActiveFilters = filters.status !== 'active' || filters.type !== 'all' ||
+    const hasActiveFilters = filters.status !== 'active' || filters.type !== 'all' || filters.platform !== 'all' ||
         filters.spilled || filters.dateRanges.length > 0;
 
     const runningQuests = (dashboardData?.activeQuests || [])
@@ -201,7 +221,19 @@ function Dashboard() {
             )}
 
             {/* Stats Panel */}
-            <StatsPanel stats={dashboardData?.stats} />
+            <StatsPanel
+                stats={dashboardData?.stats}
+                onLevelUp={async (result) => {
+                    showXP(0, 0); // Hack to trigger some celebration or toast - or manually add toast
+                    // Actually showXP isn't appropriate for level up maybe?
+                    // I'll just refresh dashboard.
+                    await fetchDashboard(true);
+                    // Or maybe use toast directly
+                    // But StatsPanel might fail to find 'toast' context if I don't pass it?
+                    // No, StatsPanel doesn't use toast.
+                    // I'll just refresh.
+                }}
+            />
 
             {/* Quest Filter */}
             <QuestFilter
