@@ -6,6 +6,7 @@
 import { fetchLeetCodeProblemFromUrl } from './leetcodeService.js';
 import { fetchCodeforcesProblemFromUrl } from './codeforcesService.js';
 import { fetchCSESProblemFromUrl } from './csesService.js';
+import { fetchCodeChefProblemFromUrl } from './codechefService.js';
 
 /**
  * Detect DSA platform from URL
@@ -26,6 +27,9 @@ export function detectPlatform(url) {
     if (lowerUrl.includes('cses.fi')) {
         return 'cses';
     }
+    if (lowerUrl.includes('codechef.com')) {
+        return 'codechef';
+    }
 
     return 'unknown';
 }
@@ -42,19 +46,30 @@ export async function fetchDSAProblem(url) {
 
     switch (platform) {
         case 'leetcode':
+            console.log('Fetching LeetCode problem');
             problemDetails = await fetchLeetCodeProblemFromUrl(url);
             break;
         case 'codeforces':
+            console.log('Fetching Codeforces problem');
             problemDetails = await fetchCodeforcesProblemFromUrl(url);
             break;
         case 'cses':
+            console.log('Fetching CSES problem');
             problemDetails = await fetchCSESProblemFromUrl(url);
             break;
+        case 'codechef':
+            console.log('Fetching CodeChef problem');
+            problemDetails = await fetchCodeChefProblemFromUrl(url);
+            break;
         default:
+            console.log('Unknown platform');
             return null;
     }
 
-    if (!problemDetails) return null;
+    if (!problemDetails) {
+        console.log('Problem details not found');
+        return null;
+    }
 
     // Return standardized format
     return {

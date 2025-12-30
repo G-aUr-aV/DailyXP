@@ -23,31 +23,39 @@ ANALYSIS INSTRUCTIONS:
    - You can assign ANY integer value (e.g., 135, 275) that reflects the effort required.
 
 
-IMPORTANT RULES:
-- The 'complexity' string MUST be consistent with LeetCode's classification.
-- The 'xpReward' number should reflect the true cognitive load, even if it differs from the typical range for that label.
-- DO NOT reveal solution approaches or hints in the reasoning.
-
 UNIVERSAL DIFFICULTY RATING SCALE (0-10):
 Assign 'difficultyRating' based on this unified scale relative to global coding standards:
-- 1.0-3.0 (Beginner): Basic syntax, loops, arrays (e.g. LeetCode Easy, CF <1000)
-- 3.1-5.0 (Intermediate): HashMaps, simple recursion, greedy (e.g. LeetCode Medium, CF 1200)
-- 5.1-7.0 (Advanced): DP, Graphs, Trees, Backtracking (e.g. LeetCode Hard, CF 1600)
-- 7.1-9.0 (Expert): Segment Trees, Flow, Complex Math (e.g. CF 2000+)
-- 9.1-10.0 (Grandmaster): Research/World Finals level (e.g. CF 2600+)
+- 1.0-3.0 (Beginner): Basic syntax, loops, arrays (e.g. LeetCode Easy)
+- 3.1-5.0 (Intermediate): Standard LeetCode Medium
+- 5.1-7.0 (Advanced): Harder Medium and standard Hard problems
+- 7.1-9.0 (Expert): Challenging Hard problems
+- 9.1-10.0 (Grandmaster): Research/World Finals level
 
-REASONING FORMAT (CRITICAL - FOLLOW EXACTLY):
-- Write a SHORT, friendly assessment (1 sentence)
-- Sound natural, like a helpful AI mentor
-- Examples: "A solid medium-level challenge!" or "This one's on the easier side, great for practice!" or "Quite challenging - prepare for a workout!"
-- DO NOT mention ANYTHING about the problem content, algorithms, or approach
-- Just convey the difficulty vibe without spoilers
+===========================================
+⚠️ CRITICAL NO-SPOILER RULES - MUST FOLLOW ⚠️
+===========================================
+You MUST NOT reveal ANY of the following in your reasoning:
+❌ Algorithm names (DP, BFS, DFS, greedy, binary search, etc.)
+❌ Data structure names (tree, graph, stack, queue, trie, etc.)
+❌ Technique names (memoization, two pointers, sliding window, etc.)
+❌ Problem category hints (string-handling, recursion, backtracking, etc.)
+❌ ANY words that hint at how to solve the problem
+❌ Problem content or what it asks the user to do
+
+✅ ONLY describe the difficulty LEVEL using vague terms like:
+"Challenging", "Tricky", "Straightforward", "Tough", "A good workout"
+
+REASONING FORMAT:
+- Write 1 SHORT sentence (under 15 words)
+- Sound friendly and encouraging
+- GOOD examples: "A challenging one - buckle up!" | "This will make you think!" | "Great for sharpening your skills!"
+- BAD examples (NEVER do this): "Tests your DP skills" | "String manipulation challenge" | "Graph traversal problem"
 
 Respond in JSON format:
 {
   "complexity": "easy|medium|hard",
   "xpReward": <number between 50 and 600>,
   "difficultyRating": <number 0-10, e.g. 7.5>,
-  "reasoning": "<short friendly assessment, no spoilers>"
+  "reasoning": "<short friendly assessment, NO HINTS AT ALL>"
 }`;
 }

@@ -112,7 +112,11 @@ function StatsPanel({ stats, onLevelUp }) {
                                 disabled={levelingUp}
                                 className="btn-levelup"
                             >
-                                {levelingUp ? 'Ascending...' : '⬆️ LEVEL UP NOW!'}
+                                {levelingUp ? (
+                                    <><span className="ascend-spinner"></span> Ascending...</>
+                                ) : (
+                                    <><span className="ascend-icon">✦</span> Ascend</>
+                                )}
                             </button>
                         ) : (
                             <span style={{

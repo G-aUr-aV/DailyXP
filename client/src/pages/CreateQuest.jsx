@@ -7,6 +7,7 @@ const PLATFORM_OPTIONS = [
     { value: 'leetcode', label: 'LeetCode', icon: '🟠' },
     { value: 'codeforces', label: 'Codeforces', icon: '🔵' },
     { value: 'cses', label: 'CSES', icon: '🟢' },
+    { value: 'codechef', label: 'CodeChef', icon: '👨‍🍳' },
     { value: 'other', label: 'Other', icon: '⚪' }
 ];
 

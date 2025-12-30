@@ -42,7 +42,7 @@ router.post('/dsa/fetch', async (req, res, next) => {
         const platform = detectPlatform(url);
         if (platform === 'unknown') {
             return res.status(400).json({
-                error: 'Unsupported platform. Supported: LeetCode, Codeforces, CSES'
+                error: 'Unsupported platform. Supported: LeetCode, Codeforces, CSES, CodeChef'
             });
         }
 
@@ -313,7 +313,7 @@ router.post('/', async (req, res, next) => {
             };
 
             // Try to fetch problem details from supported platforms
-            if (dsa.problemUrl && ['leetcode', 'codeforces', 'cses'].includes(platform)) {
+            if (dsa.problemUrl && ['leetcode', 'codeforces', 'cses', 'codechef'].includes(platform)) {
                 try {
                     const problemDetails = await fetchDSAProblem(dsa.problemUrl);
                     if (problemDetails) {

@@ -12,44 +12,46 @@ ${dsa.topics && dsa.topics.length > 0 ? `Category: ${dsa.topics.join(', ')}` : '
 ${dsa.platformDescription || quest.description ? `Problem Description: ${(dsa.platformDescription || quest.description).slice(0, 1000)}` : ''}
 
 CSES CONTEXT:
-- CSES (Code Submission Evaluation System) is a Finnish competitive programming platform
-- Problems are well-structured and educational
-- Earlier sections (Sorting, Searching) are typically easier
-- Later sections (Graph, Tree, Advanced) are harder
+- CSES is a competitive programming platform with well-structured, high-quality problems
+- CSES problems are generally HARDER than typical LeetCode problems
+- They often require optimized implementations and careful edge-case handling
 
-ANALYSIS INSTRUCTIONS:
-1. Analyze based on problem title and category
-2. Consider the algorithmic concepts involved
-3. CSES problems are generally well-calibrated in difficulty
+UNIVERSAL DIFFICULTY RATING SCALE (0-10) FOR CSES:
+Assign 'difficultyRating' based on CSES section and problem complexity:
+- 1.0-3.0 (Beginner): Introductory problems, basic I/O
+- 3.1-5.0 (Intermediate): Sorting, Searching basics, implementation
+- 5.1-7.0 (Advanced): Dynamic Programming, Range Queries, Strings, Graphs
+- 7.1-9.0 (Expert): Tree algorithms, Advanced graphs, Mathematics
+- 9.1-10.0 (Grandmaster): Advanced techniques, Geometry, research-level
 
-IMPORTANT RULES:
-- Only analyze complexity level - DO NOT reveal solution approaches
-- DO NOT mention specific algorithms or data structures to use
-- Focus purely on difficulty assessment
-
-UNIVERSAL DIFFICULTY RATING SCALE (0-10):
-Assign 'difficultyRating' based on this unified scale relative to global coding standards:
-- 1.0-3.0 (Beginner): Basic syntax, sorting (Into, Sorting & Searching start)
-- 3.1-5.0 (Intermediate): DP basics, Range Queries (Standard CSES)
-- 5.1-7.0 (Advanced): Trees, Graphs, Strings (Harder CSES sections)
-- 7.1-9.0 (Expert): Advanced Math, Geometry, Advanced Technique (Competitive)
-- 9.1-10.0 (Grandmaster): Research level difficulty
-
-XP Assignment (flexible values):
+XP Assignment:
 - Easy: 50-100 XP | Medium: 100-200 XP | Hard: 200-400 XP | Epic: 400-600 XP
 
-REASONING FORMAT (CRITICAL - FOLLOW EXACTLY):
-- Write a SHORT, friendly assessment (1 sentence)
-- Sound natural, like a helpful AI mentor
-- Examples: "A solid medium-level challenge!" or "This one's on the easier side, great for practice!" or "Quite challenging - prepare for a workout!"
-- DO NOT mention ANYTHING about the problem content, algorithms, or approach
-- Just convey the difficulty vibe without spoilers
+===========================================
+⚠️ CRITICAL NO-SPOILER RULES - MUST FOLLOW ⚠️
+===========================================
+You MUST NOT reveal ANY of the following in your reasoning:
+❌ Algorithm names (DP, BFS, DFS, greedy, binary search, etc.)
+❌ Data structure names (tree, graph, stack, queue, trie, etc.)
+❌ Technique names (memoization, two pointers, sliding window, etc.)
+❌ Problem category hints (string-handling, recursion, backtracking, etc.)
+❌ ANY words that hint at how to solve the problem
+❌ Problem content or what it asks the user to do
+
+✅ ONLY describe the difficulty LEVEL using vague terms like:
+"Challenging", "Tricky", "Straightforward", "Tough", "A good workout"
+
+REASONING FORMAT:
+- Write 1 SHORT sentence (under 15 words)
+- Sound friendly and encouraging
+- GOOD examples: "A challenging one - buckle up!" | "This will make you think!" | "Great for sharpening your skills!"
+- BAD examples (NEVER do this): "Tests your DP skills" | "String manipulation challenge" | "Graph traversal problem"
 
 Respond in JSON format:
 {
   "complexity": "easy|medium|hard|epic",
   "xpReward": <number between 50 and 600>,
   "difficultyRating": <number 0-10, e.g. 6.5>,
-  "reasoning": "<short friendly assessment, no spoilers>"
+  "reasoning": "<short friendly assessment, NO HINTS AT ALL>"
 }`;
 }

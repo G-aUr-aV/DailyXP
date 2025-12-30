@@ -12,6 +12,7 @@ import {
     getLeetCodeComplexityPrompt,
     getCodeforcesComplexityPrompt,
     getCSESComplexityPrompt,
+    getCodeChefComplexityPrompt,
     getTaskComplexityPrompt
 } from './prompts/index.js';
 
@@ -30,6 +31,8 @@ function getDSAPromptForPlatform(quest) {
             return getCodeforcesComplexityPrompt(quest);
         case 'cses':
             return getCSESComplexityPrompt(quest);
+        case 'codechef':
+            return getCodeChefComplexityPrompt(quest);
         default:
             return getDSAComplexityPrompt(quest);
     }
