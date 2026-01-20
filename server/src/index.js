@@ -10,6 +10,8 @@ import statsRoutes from './routes/stats.js';
 import llmRoutes from './routes/llm.js';
 import emailRoutes from './routes/email.js';
 import extensionRoutes from './routes/extension.js';
+import gearRoutes from './routes/gear.js';
+import ritualsRoutes from './routes/rituals.js';
 
 // Import services
 import { initializeEmailService, scheduleJobs } from './services/emailService.js';
@@ -59,6 +61,8 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/llm', llmRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/extension', extensionRoutes);
+app.use('/api/gear', gearRoutes);
+app.use('/api/rituals', ritualsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

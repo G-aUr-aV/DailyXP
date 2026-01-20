@@ -99,6 +99,17 @@ const questSchema = new mongoose.Schema({
             duration: { type: Number, required: true }, // Session duration in seconds
             reason: { type: String, default: '' }
         }]
+    },
+
+    // Ritual (repeating quest) fields
+    ritualId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Ritual',
+        default: null
+    },
+    ritualDate: {
+        type: Date,  // The specific date this instance is for (normalized to midnight)
+        default: null
     }
 }, {
     timestamps: true

@@ -111,9 +111,71 @@ export const llmAPI = {
     }),
 };
 
+// Gear Collection & Lootbox API
+export const gearAPI = {
+    get: () => fetchAPI('/gear'),
+
+    getPool: () => fetchAPI('/gear/pool'),
+
+    openChest: () => fetchAPI('/gear/open-chest', {
+        method: 'POST',
+    }),
+
+    equip: (rarity) => fetchAPI('/gear/equip', {
+        method: 'POST',
+        body: JSON.stringify({ rarity }),
+    }),
+
+    awardKeys: (amount, reason) => fetchAPI('/gear/award-keys', {
+        method: 'POST',
+        body: JSON.stringify({ amount, reason }),
+    }),
+
+    checkMilestones: () => fetchAPI('/gear/check-milestones', {
+        method: 'POST',
+    }),
+};
+
+// Ritual API
+export const ritualAPI = {
+    getAll: () => fetchAPI('/rituals'),
+
+    getById: (id) => fetchAPI(`/rituals/${id}`),
+
+    create: (data) => fetchAPI('/rituals', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+
+    update: (id, data) => fetchAPI(`/rituals/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    delete: (id) => fetchAPI(`/rituals/${id}`, {
+        method: 'DELETE',
+    }),
+
+    getHistory: (id, params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return fetchAPI(`/rituals/${id}/history${query ? `?${query}` : ''}`);
+    },
+
+    generateToday: (id) => fetchAPI(`/rituals/${id}/generate`, {
+        method: 'POST',
+    }),
+
+    generateAll: () => fetchAPI('/rituals/generate-daily', {
+        method: 'POST',
+    }),
+};
+
 export default {
     quest: questAPI,
     videoProgress: videoProgressAPI,
     stats: statsAPI,
     llm: llmAPI,
+    gear: gearAPI,
+    ritual: ritualAPI,
 };
+

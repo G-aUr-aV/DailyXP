@@ -138,3 +138,80 @@ export async function fetchLeetCodeProblemFromUrl(url) {
     }
     return fetchLeetCodeProblem(slug);
 }
+
+/**
+ * Fetch LeetCode Daily Challenge
+ * Gets today's daily problem from LeetCode
+ * @returns {Object|null} - Daily problem details or null if failed
+ */
+export async function fetchLeetCodeDailyChallenge() {
+    const query = `
+    query questionOfToday {
+        activeDailyCodingChallengeQuestion {
+            date
+            link
+            question {
+                questionId
+                questionFrontendId
+                title
+                titleSlug
+                difficulty
+                topicTags {
+                    name
+                    slug
+                }
+            }
+        }
+    }
+    `;
+
+    try {
+        console.log('Fetching LeetCode Daily Challenge...');
+
+        const response = await fetch('https://leetcode.com/graphql', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://leetcode.com/',
+                'Origin': 'https://leetcode.com'
+            },
+            body: JSON.stringify({ query })
+        });
+
+        if (!response.ok) {
+            console.error(`LeetCode Daily API error: ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+
+        if (data.errors || !data.data?.activeDailyCodingChallengeQuestion) {
+            console.error('LeetCode Daily API response error:', data.errors);
+            return null;
+        }
+
+        const daily = data.data.activeDailyCodingChallengeQuestion;
+        const question = daily.question;
+
+        console.log(`LeetCode Daily: ${question.title} (${question.difficulty})`);
+
+        // Now fetch full problem details using the slug
+        const fullProblem = await fetchLeetCodeProblem(question.titleSlug);
+
+        return {
+            date: daily.date,
+            id: question.questionFrontendId,
+            title: question.title,
+            slug: question.titleSlug,
+            difficulty: question.difficulty?.toLowerCase() || 'unknown',
+            topics: question.topicTags?.map(t => t.name) || [],
+            url: `https://leetcode.com${daily.link}`,
+            description: fullProblem?.description || '',
+            constraints: fullProblem?.constraints || ''
+        };
+    } catch (error) {
+        console.error('Error fetching LeetCode Daily Challenge:', error.message);
+        return null;
+    }
+}

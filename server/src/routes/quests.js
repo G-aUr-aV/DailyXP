@@ -4,6 +4,7 @@ import UserStats from '../models/UserStats.js';
 import { analyzeQuestComplexity } from '../llm/index.js';
 import { extractYouTubeVideoId, getVideoInfo } from '../utils/youtube.js';
 import { fetchDSAProblem, detectPlatform } from '../services/dsaService.js';
+import Ritual from '../models/Ritual.js';
 
 const router = express.Router();
 
@@ -48,9 +49,17 @@ router.post('/dsa/fetch', async (req, res, next) => {
 
         const problemDetails = await fetchDSAProblem(url);
 
+        // Even if fetch returns null, allow creating quest with URL
         if (!problemDetails) {
-            return res.status(404).json({
-                error: 'Could not fetch problem details. Please check the URL or try again.'
+            // Return minimal data allowing quest creation
+            return res.json({
+                platform,
+                title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Problem`,
+                description: '',
+                difficulty: 'unknown',
+                topics: [],
+                url: url,
+                warning: 'Could not fetch full problem details. You can still create the quest.'
             });
         }
 
@@ -189,7 +198,7 @@ router.get('/dashboard', async (req, res, next) => {
         const currentSunday = new Date(nextMonday);
         currentSunday.setSeconds(currentSunday.getSeconds() - 1);
 
-        const [activeQuests, completedQuests, stats, weeklyQuests] = await Promise.all([
+        const [activeQuestsRaw, completedQuests, stats, weeklyQuests] = await Promise.all([
             Quest.find({
                 status: 'active',
                 deadline: { $lt: nextMonday } // Deadline before next Monday 12 AM
@@ -205,13 +214,23 @@ router.get('/dashboard', async (req, res, next) => {
             })
         ]);
 
+        // Filter out expired ritual quests (rituals with deadline passed)
+        const now = new Date();
+        const activeQuests = activeQuestsRaw.filter(quest => {
+            // If it's a ritual quest and deadline has passed, don't show on dashboard
+            if (quest.ritualId && quest.deadline < now) {
+                return false;
+            }
+            return true;
+        });
+
         // Count spilled quests
         const spilledCount = activeQuests.filter(q => q.spillCount > 0).length;
 
         // Calculate Weekly Goal (XP)
         const weeklyEarnedXP = weeklyQuests.filter(q => q.status === 'completed').reduce((sum, q) => sum + (q.xpReward || 0), 0);
         // Fixed weekly goal as per user request
-        const weeklyTargetXP = 2500;
+        const weeklyTargetXP = 7500;
 
         res.json({
             weekStart: currentMonday,
@@ -435,9 +454,9 @@ router.put('/:id/complete', async (req, res, next) => {
         let xpEarned = quest.xpReward;
         const daysEarly = quest.daysRemaining;
 
-        // Early completion bonus (25%)
+        // Early completion bonus (10% - normalized with gear bonuses)
         if (daysEarly > 0) {
-            xpEarned = Math.floor(xpEarned * 1.25);
+            xpEarned = Math.floor(xpEarned * 1.10);
         }
 
         // Update quest
@@ -450,10 +469,130 @@ router.put('/:id/complete', async (req, res, next) => {
 
         await quest.save();
 
+        // Update ritual stats if this is a ritual quest
+        if (quest.ritualId) {
+            const ritual = await Ritual.findById(quest.ritualId);
+            if (ritual) {
+                ritual.recordCompletion();
+                await ritual.save();
+            }
+        }
+
         // Update user stats
         const stats = await UserStats.getStats();
         stats.questsCompleted += 1;
         stats.questsByType[quest.type] = (stats.questsByType[quest.type] || 0) + 1;
+
+        // === Track complexity-based stats ===
+        if (!stats.questsByComplexity) {
+            stats.questsByComplexity = { easy: 0, medium: 0, hard: 0, epic: 0 };
+        }
+        const complexity = quest.complexity || 'medium';
+        stats.questsByComplexity[complexity] = (stats.questsByComplexity[complexity] || 0) + 1;
+
+        // === Track records for achievements ===
+        if (!stats.records) {
+            stats.records = {
+                bestSingleQuestXP: 0,
+                bestDailyXP: 0,
+                bestWeeklyXP: 0,
+                longestStreak: 0,
+                totalEpicQuests: 0,
+                totalHardQuests: 0,
+                perfectWeeks: 0,
+                speedCompletions: 0,
+                weekendWarrior: 0,
+                earlyBird: 0,
+                nightOwl: 0
+            };
+        }
+
+        // Track best single quest XP
+        if (xpEarned > (stats.records.bestSingleQuestXP || 0)) {
+            stats.records.bestSingleQuestXP = xpEarned;
+        }
+
+        // Track hard/epic quests
+        if (complexity === 'hard') {
+            stats.records.totalHardQuests = (stats.records.totalHardQuests || 0) + 1;
+        } else if (complexity === 'epic') {
+            stats.records.totalEpicQuests = (stats.records.totalEpicQuests || 0) + 1;
+        }
+
+        // Track time-based achievements
+        const completedHour = quest.completedAt.getHours();
+        const completedDay = quest.completedAt.getDay(); // 0 = Sunday, 6 = Saturday
+
+        // Early Bird (completed before 9 AM)
+        if (completedHour < 9) {
+            stats.records.earlyBird = (stats.records.earlyBird || 0) + 1;
+        }
+
+        // Night Owl (completed after 10 PM / 22:00)
+        if (completedHour >= 22) {
+            stats.records.nightOwl = (stats.records.nightOwl || 0) + 1;
+        }
+
+        // Weekend Warrior (completed on Saturday or Sunday)
+        if (completedDay === 0 || completedDay === 6) {
+            stats.records.weekendWarrior = (stats.records.weekendWarrior || 0) + 1;
+        }
+
+        // Speed Demon (completed same day as created)
+        const createdDate = quest.createdAt.toDateString();
+        const completedDate = quest.completedAt.toDateString();
+        if (createdDate === completedDate) {
+            stats.records.speedCompletions = (stats.records.speedCompletions || 0) + 1;
+        }
+
+        // Track longest streak
+        if (stats.streak > (stats.records.longestStreak || 0)) {
+            stats.records.longestStreak = stats.streak;
+        }
+
+        // Calculate and track daily XP (approximate - check if this is a new daily high)
+        // Get today's completed quests
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const todayQuests = await Quest.find({
+            status: 'completed',
+            completedAt: { $gte: today, $lt: tomorrow }
+        });
+        const todayXP = todayQuests.reduce((sum, q) => sum + (q.xpReward || 0), 0);
+
+        if (todayXP > (stats.records.bestDailyXP || 0)) {
+            stats.records.bestDailyXP = todayXP;
+        }
+
+        // Calculate and track weekly XP
+        const currentMonday = Quest.getCurrentMonday();
+        const nextMonday = new Date(currentMonday);
+        nextMonday.setDate(nextMonday.getDate() + 7);
+
+        const weekQuests = await Quest.find({
+            status: 'completed',
+            completedAt: { $gte: currentMonday, $lt: nextMonday }
+        });
+        const weekXP = weekQuests.reduce((sum, q) => sum + (q.xpReward || 0), 0);
+
+        if (weekXP > (stats.records.bestWeeklyXP || 0)) {
+            stats.records.bestWeeklyXP = weekXP;
+        }
+
+        // Check for perfect week (weekly XP >= target)
+        const weeklyTarget = 7500;
+        if (weekXP >= weeklyTarget) {
+            // Only increment once per week
+            const weekKey = currentMonday.toISOString();
+            if (!stats._perfectWeekTracked || stats._perfectWeekTracked !== weekKey) {
+                stats.records.perfectWeeks = (stats.records.perfectWeeks || 0) + 1;
+                stats._perfectWeekTracked = weekKey;
+            }
+        }
+
         const newStats = await stats.addXP(xpEarned);
 
         res.json({
@@ -470,10 +609,19 @@ router.put('/:id/complete', async (req, res, next) => {
 // DELETE /api/quests/:id - Delete quest
 router.delete('/:id', async (req, res, next) => {
     try {
-        const quest = await Quest.findByIdAndDelete(req.params.id);
+        const quest = await Quest.findById(req.params.id);
         if (!quest) {
             return res.status(404).json({ error: 'Quest not found' });
         }
+
+        // Block deletion of incomplete ritual quests
+        if (quest.ritualId && quest.status !== 'completed') {
+            return res.status(403).json({
+                error: 'Cannot delete incomplete ritual quests. Complete them or wait for them to expire.'
+            });
+        }
+
+        await Quest.findByIdAndDelete(req.params.id);
         res.json({ message: 'Quest deleted', quest });
     } catch (error) {
         next(error);

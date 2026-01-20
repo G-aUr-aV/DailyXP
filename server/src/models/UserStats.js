@@ -35,6 +35,27 @@ const userStatsSchema = new mongoose.Schema({
         dsa: { type: Number, default: 0 },
         task: { type: Number, default: 0 }
     },
+    // Track quests by complexity level
+    questsByComplexity: {
+        easy: { type: Number, default: 0 },
+        medium: { type: Number, default: 0 },
+        hard: { type: Number, default: 0 },
+        epic: { type: Number, default: 0 }
+    },
+    // Track records for achievement unlocks
+    records: {
+        bestSingleQuestXP: { type: Number, default: 0 },
+        bestDailyXP: { type: Number, default: 0 },
+        bestWeeklyXP: { type: Number, default: 0 },
+        longestStreak: { type: Number, default: 0 },
+        totalEpicQuests: { type: Number, default: 0 },
+        totalHardQuests: { type: Number, default: 0 },
+        perfectWeeks: { type: Number, default: 0 }, // Weeks with 100%+ completion
+        speedCompletions: { type: Number, default: 0 }, // Quests completed same day as created
+        weekendWarrior: { type: Number, default: 0 }, // Quests completed on weekends
+        earlyBird: { type: Number, default: 0 }, // Quests completed before 9 AM
+        nightOwl: { type: Number, default: 0 } // Quests completed after 10 PM
+    },
     achievements: [{
         type: { type: String },
         name: String,
@@ -47,7 +68,25 @@ const userStatsSchema = new mongoose.Schema({
         questsCompleted: Number,
         xpEarned: Number,
         spilledQuests: Number
-    }]
+    }],
+    // Gear Collection & Lootbox System
+    gearSystem: {
+        keys: { type: Number, default: 0 },
+        totalKeysEarned: { type: Number, default: 0 },
+        keyMilestonesReached: [String], // ['level_5', 'level_10', 'xp_1000', ...]
+        collectedGear: [{
+            slot: String,      // 'helmet', 'shoulder', 'amulet', etc.
+            rarity: String,    // 'common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'
+            itemId: String,    // 'helmet_common', 'boots_legendary', etc.
+            name: String,      // Display name
+            lore: String,      // Flavor text
+            acquiredAt: { type: Date, default: Date.now }
+        }],
+        chestsOpened: { type: Number, default: 0 },
+        xpBonusPercent: { type: Number, default: 0 },
+        lastXPMilestone: { type: Number, default: 0 }, // Track XP milestone for key rewards
+        equippedSet: { type: String, default: null } // Which rarity set is equipped: 'common', 'epic', etc.
+    }
 }, {
     timestamps: true
 });

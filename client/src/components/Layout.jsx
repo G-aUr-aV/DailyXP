@@ -34,6 +34,18 @@ function Layout() {
                                 <span>Achievements</span>
                             </NavLink>
                         </li>
+                        <li>
+                            <NavLink to="/rituals" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                                <span className="nav-icon">⚔️</span>
+                                <span>Rituals</span>
+                            </NavLink>
+                        </li>
+                        <li>
+                            <NavLink to="/armory" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                                <span className="nav-icon">🏰</span>
+                                <span>Armory</span>
+                            </NavLink>
+                        </li>
                     </ul>
                 </nav>
 

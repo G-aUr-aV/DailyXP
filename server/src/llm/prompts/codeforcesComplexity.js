@@ -6,10 +6,12 @@
 export function getCodeforcesComplexityPrompt(quest) {
   const dsa = quest.dsa || {};
 
+  const hasRating = dsa.rating != null;
+
   return `Analyze the complexity of this Codeforces problem.
 
 Problem Title: ${dsa.platformTitle || quest.title}
-${dsa.rating ? `Codeforces Rating: ${dsa.rating}` : ''}
+${hasRating ? `Codeforces Rating: ${dsa.rating}` : '⚠️ Codeforces Rating: Could not be fetched (blocked by Cloudflare). Use your own understanding based on the problem description and topics below.'}
 ${dsa.topics && dsa.topics.length > 0 ? `Problem Tags: ${dsa.topics.join(', ')}` : ''}
 ${dsa.platformDescription || quest.description ? `Problem Description: ${(dsa.platformDescription || quest.description).slice(0, 1000)}` : ''}
 
@@ -20,12 +22,13 @@ RATING GUIDELINES (use for reference):
 - Rating 2100+: Epic/Competition level
 
 ANALYSIS INSTRUCTIONS:
-1. Use the Codeforces rating as a strong indicator of difficulty
+${hasRating ? '1. Use the Codeforces rating as a strong indicator of difficulty' : '1. Since rating is unavailable, analyze the problem description and topics to estimate difficulty'}
 2. Analyze topics to understand problem domain
 3. Consider both algorithmic and implementation complexity
+${!hasRating ? '4. If problem description is also unavailable, make a conservative Medium estimate' : ''}
 
 UNIVERSAL DIFFICULTY RATING SCALE (0-10):
-Assign 'difficultyRating' based on Codeforces rating:
+${hasRating ? 'Assign \'difficultyRating\' based on Codeforces rating:' : 'Assign \'difficultyRating\' based on your analysis of description and topics:'}
 - 1.0-3.0 (Beginner): Rating < 1000. Basic implementation.
 - 3.1-5.0 (Intermediate): Rating 1000-1400.
 - 5.1-7.0 (Advanced): Rating 1400-1900.

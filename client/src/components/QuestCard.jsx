@@ -169,6 +169,31 @@ function QuestCard({ quest, onComplete }) {
                 <span className="quest-spilled">Spilled ×{quest.spillCount}</span>
             )}
 
+            {/* Ritual Badge */}
+            {quest.ritualId && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '8px',
+                        background: 'linear-gradient(135deg, rgba(138, 43, 226, 0.3), rgba(0, 255, 204, 0.2))',
+                        border: '1px solid rgba(138, 43, 226, 0.5)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '2px 8px',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        color: 'var(--aurora-purple)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        zIndex: 20
+                    }}
+                    title="Daily Ritual"
+                >
+                    ⚔️ Ritual
+                </div>
+            )}
+
             {/* Completed Checkmark */}
             {isCompleted && (
                 <>
